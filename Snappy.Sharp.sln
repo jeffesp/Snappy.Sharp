@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snappy.Sharp", "Snappy.Sharp\Snappy.Sharp.csproj", "{3DE0FF31-8A1D-4485-B725-D120CD91D205}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snappy.Sharp.Test", "Snappy.Sharp.Test\Snappy.Sharp.Test.csproj", "{560D8F63-6927-46F6-856D-F28F02F2F1DC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3DE0FF31-8A1D-4485-B725-D120CD91D205}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DE0FF31-8A1D-4485-B725-D120CD91D205}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DE0FF31-8A1D-4485-B725-D120CD91D205}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DE0FF31-8A1D-4485-B725-D120CD91D205}.Release|Any CPU.Build.0 = Release|Any CPU
+		{560D8F63-6927-46F6-856D-F28F02F2F1DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{560D8F63-6927-46F6-856D-F28F02F2F1DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{560D8F63-6927-46F6-856D-F28F02F2F1DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{560D8F63-6927-46F6-856D-F28F02F2F1DC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
