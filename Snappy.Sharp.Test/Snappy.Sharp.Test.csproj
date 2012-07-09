@@ -46,6 +46,7 @@
     <Compile Include="PreambleDecodeTests.cs" />
     <Compile Include="PreambleEncodeTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SnappyStreamTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

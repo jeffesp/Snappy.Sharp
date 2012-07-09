@@ -23,7 +23,7 @@ namespace Snappy.Sharp
 
         public virtual int WriteUncomressedLength(byte[] compressed, int compressedOffset, int uncompressedLength)
         {
-            int bitMask = 0x80;
+            const int bitMask = 0x80;
             if (uncompressedLength < 0)
                 throw new ArgumentException("uncompressedLength");
 
