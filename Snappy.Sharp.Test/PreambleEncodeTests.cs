@@ -17,8 +17,8 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void one_byte_size()
         {
-            var data = WriteLengthData(10);
-            Assert.Equal(data[0], 10);
+            var data = WriteLengthData(64);
+            Assert.Equal(data[0], 0x40);
         }
 
         [Fact]
@@ -29,18 +29,30 @@ namespace Snappy.Sharp.Test
         }
 
         [Fact]
-        public void two_byte_size()
+        public void multi_byte_size()
         {
-            var data = WriteLengthData(128);
-            Assert.Equal(128, data[0]);
-            Assert.Equal(1, data[1]);
+            var data = WriteLengthData(2097150);
+            Assert.Equal(0xFE, data[0]);
+            Assert.Equal(0xFF, data[1]);
+            Assert.Equal(0x7F, data[2]);
         }
 
         [Fact]
-        public void two_byte_size_has_zero_in_next_position()
+        public void int_maxvalue_encoded()
         {
-            var data = WriteLengthData(129);
-            Assert.Equal(data[2], 0);
+            var data = WriteLengthData(Int32.MaxValue);
+            Assert.Equal(0xFF, data[0]);
+            Assert.Equal(0xFF, data[1]);
+            Assert.Equal(0xFF, data[2]);
+            Assert.Equal(0xFF, data[3]);
+            Assert.Equal(0x07, data[4]);
+        }
+
+        [Fact]
+        public void multi_byte_size_has_zero_in_next_position()
+        {
+            var data = WriteLengthData(2097150);
+            Assert.Equal(data[3], 0);
         }
 
         private static byte[] WriteLengthData(int value)

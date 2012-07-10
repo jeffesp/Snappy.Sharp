@@ -7,17 +7,28 @@ namespace Snappy.Sharp
     // Modeled after System.IO.Compression.DeflateStream in the framework
     public class SnappyStream : Stream
     {
-        private readonly Stream stream;
+        private Stream stream;
         private readonly CompressionMode compressionMode;
         private readonly bool leaveStreamOpen;
 
         private SnappyCompressor compressor;
         private SnappyDecompressor decompressor;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SnappyStream"/> class.
+        /// </summary>
+        /// <param name="s">The stream.</param>
+        /// <param name="mode">The compression mode.</param>
         public SnappyStream(Stream s, CompressionMode mode) : this(s, mode, false)
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SnappyStream"/> class.
+        /// </summary>
+        /// <param name="s">The stream.</param>
+        /// <param name="mode">The compression mode.</param>
+        /// <param name="leaveOpen">If set to <c>true</c> leaves the stream open when complete.</param>
         public SnappyStream(Stream s, CompressionMode mode, bool leaveOpen)
         {
             stream = s;
@@ -27,18 +38,21 @@ namespace Snappy.Sharp
             if (compressionMode == CompressionMode.Decompress)
             {
                 if (!stream.CanRead)
-                    throw new InvalidOperationException("Trying to decompress and cannot read stream.");
+                    throw new InvalidOperationException("Trying to decompress and underlying stream not readable.");
 
                 decompressor =  new SnappyDecompressor();
+
+                // TODO: check for header
             }
             if (compressionMode == CompressionMode.Compress)
             {
                 if (!stream.CanWrite)
-                    throw new InvalidOperationException("Trying to compress and cannot write stream.");
+                    throw new InvalidOperationException("Trying to compress and underlying stream is not writable.");
 
                 compressor = new SnappyCompressor();
-            }
 
+                // TODO: write header
+            }
         }
 
         /// <summary>
@@ -78,7 +92,7 @@ namespace Snappy.Sharp
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            return stream.Read(buffer, offset, count);
         }
 
         public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
@@ -97,14 +111,32 @@ namespace Snappy.Sharp
 
         protected override void Dispose(bool disposing)
         {
-            if (leaveStreamOpen)
+            try
             {
-                ;
+                if (disposing && stream != null)
+                {
+                    Flush();
+                    if (compressionMode == CompressionMode.Compress && stream != null)
+                    {
+                        // Make sure all data written
+                    }
+                }
             }
-            else
+            finally
             {
-                ;
-            }
+                try
+                {
+                    if (disposing && !leaveStreamOpen && stream != null)
+                    {
+                        stream.Close();
+                    }
+                }
+                finally
+                {
+                    stream = null;
+                    base.Dispose(disposing);
+                }
+            }            
         }
 
         /// <summary>

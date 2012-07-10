@@ -16,12 +16,17 @@ namespace Snappy.Sharp
             return 32 + sourceLength + sourceLength / 6;
         }
 
-        public virtual int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
+        public int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed)
         {
-            return 0;
+            return Compress(uncompressed, uncompressedOffset, uncompressedLength, compressed, 0);
         }
 
-        public virtual int WriteUncomressedLength(byte[] compressed, int compressedOffset, int uncompressedLength)
+        public int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
+        {
+            return uncompressedLength;
+        }
+
+        public int WriteUncomressedLength(byte[] compressed, int compressedOffset, int uncompressedLength)
         {
             const int bitMask = 0x80;
             if (uncompressedLength < 0)
@@ -33,36 +38,13 @@ namespace Snappy.Sharp
             // In other words, an uncompressed length of 64 would be stored as 0x40, and an uncompressed length of 2097150 (0x1FFFFE) would
             // be stored as 0xFE 0XFF 0X7F
 
-            if (uncompressedLength < (1 << 7))
-            {
-                compressed[compressedOffset++] = (byte)uncompressedLength;
-            }
-            else if (uncompressedLength < (1 << 14))
+            while (uncompressedLength > bitMask)
             {
                 compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
-                compressed[compressedOffset++] = (byte)(uncompressedLength >> 7);
+                uncompressedLength = uncompressedLength >> 7;
             }
-            else if (uncompressedLength < (1 << 21))
-            {
-                compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 7) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 14));
-            }
-            else if (uncompressedLength < (1 << 28))
-            {
-                compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 7) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 14) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 21));
-            }
-            else 
-            {
-                compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 7) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 14) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 21) | bitMask);
-                compressed[compressedOffset++] = (byte)((uncompressedLength >> 28));
-            }
+            compressed[compressedOffset++] = (byte)(uncompressedLength);
+
             return compressedOffset;
         }
     }

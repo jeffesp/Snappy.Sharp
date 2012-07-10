@@ -11,61 +11,37 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void decodes_one_byte()
         {
-            byte[] data = new byte[1];
-            data[0] = 0x7F;
+            byte[] data = new byte[10];
+            data[0] = 0x40;
 
             var result = ReadLengthData(data);
-            Assert.Equal(128, result);
+            Assert.Equal(64, result);
         }
 
         [Fact]
-        public void decodes_two_bytes()
+        public void decodes_multi_bytes()
         {
-            byte[] data = new byte[2];
-            data[0] = 0xF7;
-            data[1] = 0x7F; 
-
-            var result = ReadLengthData(data);
-            Assert.Equal(128, result);
-        }
-
-        [Fact]
-        public void decodes_three_bytes()
-        {
-            byte[] data = new byte[3];
-            data[0] = 0xF7;
-            data[1] = 0xF7;
+            byte[] data = new byte[10];
+            data[0] = 0xFE;
+            data[1] = 0xFF;
             data[2] = 0x7F; 
 
             var result = ReadLengthData(data);
-            Assert.Equal(128, result);
+            Assert.Equal(2097150, result);
         }
 
         [Fact]
-        public void decodes_four_bytes()
+        public void int_maxvalue_decoded()
         {
-            byte[] data = new byte[4];
-            data[0] = 0xF7;
-            data[1] = 0xF7;
-            data[2] = 0x7F; 
-            data[3] = 0x7F; 
+            byte[] data = new byte[10];
+            data[0] = 0xFF;
+            data[1] = 0xFF;
+            data[2] = 0xFF; 
+            data[3] = 0xFF; 
+            data[4] = 0x7; 
 
             var result = ReadLengthData(data);
-            Assert.Equal(128, result);
-        }
-
-        [Fact]
-        public void decodes_five_bytes()
-        {
-            byte[] data = new byte[5];
-            data[0] = 0xF7;
-            data[1] = 0xF7;
-            data[2] = 0x7F; 
-            data[3] = 0x7F; 
-            data[4] = 0x7F; 
-
-            var result = ReadLengthData(data);
-            Assert.Equal(128, result);
+            Assert.Equal(Int32.MaxValue, result);
         }
 
         private static int ReadLengthData(byte[] data)
