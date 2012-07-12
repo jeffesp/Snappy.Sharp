@@ -49,6 +49,7 @@
     <Compile Include="SnappyCompressionTests.cs" />
     <Compile Include="SnappyStreamReadTests.cs" />
     <Compile Include="SnappyStreamTests.cs" />
+    <Compile Include="UtilitiesTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

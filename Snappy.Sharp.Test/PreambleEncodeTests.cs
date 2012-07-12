@@ -55,6 +55,17 @@ namespace Snappy.Sharp.Test
             Assert.Equal(data[3], 0);
         }
 
+        [Fact]
+        public void returns_index_into_buffer()
+        {
+            var target = new SnappyCompressor();
+            var data = new byte[10];
+
+            var result = target.WriteUncomressedLength(data, 0, 2097150);
+
+            Assert.Equal(3, result);
+        }
+
         private static byte[] WriteLengthData(int value)
         {
             var target = new SnappyCompressor();
