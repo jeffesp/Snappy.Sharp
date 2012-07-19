@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+
 using Xunit;
 
 namespace Snappy.Sharp.Test
@@ -15,7 +13,7 @@ namespace Snappy.Sharp.Test
             data[0] = 0x40;
 
             var result = ReadLengthData(data);
-            Assert.Equal(64, result);
+            Assert.Equal(64, result[0]);
         }
 
         [Fact]
@@ -27,7 +25,7 @@ namespace Snappy.Sharp.Test
             data[2] = 0x7F; 
 
             var result = ReadLengthData(data);
-            Assert.Equal(2097150, result);
+            Assert.Equal(2097150, result[0]);
         }
 
         [Fact]
@@ -41,10 +39,10 @@ namespace Snappy.Sharp.Test
             data[4] = 0x7; 
 
             var result = ReadLengthData(data);
-            Assert.Equal(Int32.MaxValue, result);
+            Assert.Equal(Int32.MaxValue, result[0]);
         }
 
-        private static int ReadLengthData(byte[] data)
+        private static int[] ReadLengthData(byte[] data)
         {
             var target = new SnappyDecompressor();
 

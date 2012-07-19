@@ -13,7 +13,26 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void compress_returns_bytes_copied()
         {
-            var data = new byte[2048]; // GetRandomData(2048);
+            var data = Encoding.Default.GetBytes("ThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThis"); 
+            var target = new SnappyCompressor();
+
+            int compressedSize = target.MaxCompressedLength(data.Length);
+            var compressed = new byte[compressedSize];
+
+            int result = target.Compress(data, 0, data.Length, compressed);
+
+            Assert.True(result < compressedSize);
+
+            var x = new SnappyDecompressor();
+
+            var bytes = x.Decompress(compressed, 0, result);
+            Console.Write(Encoding.Default.GetString(bytes));
+        }
+
+        [Fact]
+        public void compress_random_data()
+        {
+            var data = GetRandomData(4096);
             var target = new SnappyCompressor();
 
             int compressedSize = target.MaxCompressedLength(data.Length);
@@ -22,12 +41,18 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize); 
+            var x = new SnappyDecompressor();
+
+            var bytes = x.Decompress(compressed, 0, result);
+            Assert.Equal(data, bytes);
         }
 
-        [Fact]
-        public void compress_writes_uncompressed_length_first()
+
+        [Theory]
+        [PropertyData("CompressedDataSizes")]
+        public void compress_writes_uncompressed_length_first(int dataSize, byte storageBytes)
         {
-            var data = GetRandomData(64);
+            var data = GetRandomData(dataSize);
             var target = new SnappyCompressor();
 
             int compressedSize = target.MaxCompressedLength(data.Length);
@@ -35,7 +60,7 @@ namespace Snappy.Sharp.Test
 
             target.Compress(data, 0, data.Length, compressed);
 
-            Assert.Equal(64, compressed[0]);
+            Assert.Equal(dataSize, compressed[0]);
         }
 
         [Theory]
@@ -65,18 +90,6 @@ namespace Snappy.Sharp.Test
             var size = target.EmitLiteral(result, 0, data, 0, dataSize, true);
 
             Assert.Equal(data, result.Skip(size - dataSize).Take(dataSize));
-        }
-
-        [Fact]
-        public void emit_literal_runs_fast_path_for_16_or_fewer_bytes()
-        {
-
-        }
-
-        [Fact]
-        public void find_candidate_does_something()
-        {
-
         }
 
         private static object[] EmitLiteralTag(int dataSize, int resultSizeExtenstion)
@@ -125,6 +138,21 @@ namespace Snappy.Sharp.Test
                            new object[] {96, (byte)0xF0, 2},
                            new object[] {256, (byte)0xF4, 3},
                            new object[] {65536, (byte)0xF8, 4},
+                       };
+            }
+        }
+
+        public static IEnumerable<object[]> CompressedDataSizes 
+        {
+            get
+            {
+                return new List<object[]>
+                       {
+                           new object[] {16, 1},
+                           new object[] {24, 1},
+                           new object[] {96, 1},
+                           new object[] {256, 2},
+                           new object[] {65536, 3},
                        };
             }
         }

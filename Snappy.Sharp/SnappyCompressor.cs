@@ -12,10 +12,6 @@ namespace Snappy.Sharp
 
         private const int MAX_HASH_TABLE_BITS = 14;
         private const int MAX_HASH_TABLE_SIZE = 1 << MAX_HASH_TABLE_BITS;
-        private const int LITERAL = 0;
-        private const int COPY_1_BYTE_OFFSET = 1;  // 3 bit length + 3 bits of offset in opcode
-        private const int COPY_2_BYTE_OFFSET = 2;
-        private const int COPY_4_BYTE_OFFSET = 3;
 
         public int MaxCompressedLength(int sourceLength)
         {
@@ -49,31 +45,35 @@ namespace Snappy.Sharp
             return compressedIndex - compressedOffset;
         }
 
-        internal int CompressFragment(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedIndex, short[] hashTable)
+        internal int CompressFragment(byte[] input, int inputOffset, int inputSize, byte[] output, int outputIndex, short[] hashTable)
         {
-            int ipIndex = uncompressedOffset;
-            Debug.Assert(uncompressedLength <= BLOCK_SIZE);
-            int ipEndIndex = uncompressedOffset + uncompressedLength;
+            // "ip" is the input pointer, and "op" is the output pointer.
+            int inputIndex = inputOffset;
+            //CHECK_LE(input_size, kBlockSize);
+            //CHECK_EQ(table_size & (table_size - 1), 0) << ": table must be power of two";
+            if (inputSize > BLOCK_SIZE)
+                throw new ArgumentOutOfRangeException("inputSize", "input size must be less than block size.");
+            if ((hashTable.Length & (hashTable.Length - 1)) != 0)
+                throw new ArgumentOutOfRangeException("hashTable", "hash table length must be a power of two.");
+            int shift = 32 - Utilities.Log2Floor(hashTable.Length);
+            //DCHECK_EQ(static_cast<int>(kuint32max >> shift), table_size - 1);
+            int ipEnd = inputOffset + inputSize;
+            int baseInputIndex = inputIndex;
+            // Bytes in [next_emit, ip) will be emitted as literal bytes.  Or
+            // [next_emit, ip_end) after the main loop.
+            int nextEmitIndex = inputIndex;
 
-            int hashTableSize = GetHashTableSize(uncompressedLength);
-            int shift = 32 - Utilities.Log2Floor(hashTableSize);
-            Debug.Assert((hashTableSize & (hashTableSize - 1)) == 0, "table must be power of two");
-            Debug.Assert(0xFFFFFFFF >> shift == hashTableSize - 1);
-
-            // Bytes in [nextEmitIndex, ipIndex) will be emitted as literal bytes.  Or
-            // [nextEmitIndex, ipEndIndex) after the main loop.
-            int nextEmitIndex = ipIndex;
-
-            if (uncompressedLength >= INPUT_MARGIN_BYTES)
+            if (inputSize >= INPUT_MARGIN_BYTES)
             {
-                int ipLimit = uncompressedOffset + uncompressedLength - INPUT_MARGIN_BYTES;
-                while (ipIndex <= ipLimit)
-                {
-                    Debug.Assert(nextEmitIndex <= ipIndex);
+                int ipLimit = inputOffset + inputSize - INPUT_MARGIN_BYTES;
 
+                uint currentIndexBytes = Utilities.GetUInt(input, ++inputIndex);
+                for (uint nextHash = Hash(currentIndexBytes, shift); ; )
+                {
+                    Debug.Assert(nextEmitIndex < inputIndex);
                     // The body of this loop calls EmitLiteral once and then EmitCopy one or
                     // more times.  (The exception is that when we're close to exhausting
-                    // the input we exit and emit a literal.)
+                    // the input we goto emit_remainder.)
                     //
                     // In the first iteration of this loop we're just starting, so
                     // there's nothing to copy, so calling EmitLiteral once is
@@ -82,7 +82,7 @@ namespace Snappy.Sharp
                     // precede the next call to EmitCopy (if any).
                     //
                     // Step 1: Scan forward in the input looking for a 4-byte-long match.
-                    // If we get close to exhausting the input exit and emit a final literal.
+                    // If we get close to exhausting the input then goto emit_remainder.
                     //
                     // Heuristic match skipping: If 32 bytes are scanned with no matches
                     // found, start looking only at every other byte. If 32 more bytes are
@@ -96,22 +96,34 @@ namespace Snappy.Sharp
                     // The "skip" variable keeps track of how many bytes there are since the
                     // last match; dividing it by 32 (ie. right-shifting by five) gives the
                     // number of bytes to move ahead for each iteration.
-                    int skip = 32;
+                    uint skip = 32;
 
-                    int[] candidateResult = FindCandidate(uncompressed, ipIndex, ipLimit, uncompressedOffset, shift, hashTable, skip);
-                    ipIndex = candidateResult[0];
-                    skip = candidateResult[1];
-                    int candidateIndex = candidateResult[2];
-                    if (ipIndex + BytesBetweenHashLookups(skip) > ipLimit)
+                    int nextIp = inputIndex;
+                    int candidate;
+                    do
                     {
-                        break;
-                    }
+                        inputIndex = nextIp;
+                        uint hash = nextHash;
+                        //DCHECK_EQ(hash, Hash(inputIndex, shift));
+                        nextIp = (int)(inputIndex + (skip++ >> 5));
+                        if (nextIp > ipLimit)
+                        {
+                            goto emit_remainder;
+                        }
+                        currentIndexBytes = Utilities.GetUInt(input, nextIp);
+                        nextHash = Hash(currentIndexBytes, shift);
+                        candidate = baseInputIndex + hashTable[hash];
+                        //DCHECK_GE(candidate, baseInputIndex);
+                        //DCHECK_LT(candidate, inputIndex);
+
+                        hashTable[hash] = (short)(inputIndex - baseInputIndex);
+                    } while (Utilities.GetUInt(input, inputIndex) != Utilities.GetUInt(input, candidate));
 
                     // Step 2: A 4-byte match has been found.  We'll later see if more
                     // than 4 bytes match.  But, prior to the match, input
-                    // bytes [nextEmit, ip) are unmatched.  Emit them as "literal bytes."
-                    Debug.Assert(nextEmitIndex + 16 <= ipEndIndex);
-                    compressedIndex = EmitLiteral(compressed, compressedIndex, uncompressed, nextEmitIndex, ipIndex - nextEmitIndex, true);
+                    // bytes [next_emit, ip) are unmatched.  Emit them as "literal bytes."
+                    //DCHECK_LE(nextEmitIndex + 16, ipEnd);
+                    outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputIndex - nextEmitIndex, true);
 
                     // Step 3: Call EmitCopy, and then see if another EmitCopy could
                     // be our next move.  Repeat until we find no match for the
@@ -121,70 +133,51 @@ namespace Snappy.Sharp
                     // though we don't yet know how big the literal will be.  We handle that
                     // by proceeding to the next iteration of the main loop.  We also can exit
                     // this loop via goto if we get close to exhausting the input.
-                    int[] indexes = EmitCopies(uncompressed, uncompressedOffset, uncompressedLength, ipIndex, compressed, compressedIndex, hashTable, shift, candidateIndex);
-                    ipIndex = indexes[0];
-                    compressedIndex = indexes[1];
-                    nextEmitIndex = ipIndex;
+                    uint candidateBytes = 0;
+                    int insertTail;
+
+                    do
+                    {
+                        // We have a 4-byte match at ip, and no need to emit any
+                        // "literal bytes" prior to ip.
+                        int baseIndex = inputIndex;
+                        int matched = 4 + FindMatchLength(input, candidate + 4, inputIndex + 4, ipEnd);
+                        inputIndex += matched;
+                        int offset = baseIndex - candidate;
+                        //DCHECK_EQ(0, memcmp(baseIndex, candidate, matched));
+                        outputIndex = EmitCopy(output, outputIndex, offset, matched);
+                        // We could immediately start working at ip now, but to improve
+                        // compression we first update table[Hash(ip - 1, ...)].
+                        insertTail = inputIndex - 1;
+                        nextEmitIndex = inputIndex;
+                        if (inputIndex >= ipLimit)
+                        {
+                            goto emit_remainder;
+                        }
+                        uint prevHash = Hash(Utilities.GetUInt(input, insertTail), shift);
+                        hashTable[prevHash] = (short)(inputIndex - baseInputIndex - 1);
+                        uint curHash = Hash(Utilities.GetUInt(input, insertTail + 1), shift);
+                        candidate = baseInputIndex + hashTable[curHash];
+                        candidateBytes = Utilities.GetUInt(input, candidate);
+                        hashTable[curHash] = (short)(inputIndex - baseInputIndex);
+                    } while (Utilities.GetUInt(input, insertTail + 1) == candidateBytes);
+
+                    nextHash = Hash(Utilities.GetUInt(input, insertTail + 2), shift);
+                    ++inputIndex;
                 }
             }
 
-            // goto emitRemainder hack
-            if (nextEmitIndex < ipEndIndex)
+        emit_remainder:
+            // Emit the remaining bytes as a literal
+            if (nextEmitIndex < ipEnd)
             {
-                // Emit the remaining bytes as a literal
-                compressedIndex = EmitLiteral(compressed, compressedIndex, uncompressed, nextEmitIndex, ipEndIndex - nextEmitIndex, false);
+                outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, ipEnd - nextEmitIndex, false);
             }
-            return compressedIndex;
+
+            return outputIndex;
         }
 
-        private int[] EmitCopies(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, int ipIndex, byte[] compressed, int compressedIndex, short[] hashTable, int shift, int candidateIndex)
-        {
-            // Step 3: Call EmitCopy, and then see if another EmitCopy could
-            // be our next move.  Repeat until we find no match for the
-            // input immediately after what was consumed by the last EmitCopy call.
-            //
-            // If we exit this loop normally then we need to call EmitLiteral next,
-            // though we don't yet know how big the literal will be.  We handle that
-            // by proceeding to the next iteration of the main loop.  We also can exit
-            // this loop via goto if we get close to exhausting the input.
-            uint inputBytes;
-            do {
-                // We have a 4-byte match at ip, and no need to emit any
-                // "literal bytes" prior to ip.
-                int matched = 4 + FindMatchLength(uncompressed, candidateIndex + 4, uncompressed, ipIndex + 4, uncompressedOffset + uncompressedLength);
-                int offset = ipIndex - candidateIndex;
-                //TODO: assert SnappyInternalUtils.equals(input, ipIndex, input, candidateIndex, matched);
-                ipIndex += matched;
-
-                // emit the copy operation for this chunk
-                compressedIndex = EmitCopy(compressed, compressedIndex, offset, matched);
-
-                // are we done?
-                if (ipIndex >= uncompressedOffset + uncompressedLength - INPUT_MARGIN_BYTES) {
-                    return new int[]{ipIndex, compressedIndex};
-                }
-
-                // We could immediately start working at ip now, but to improve
-                // compression we first update table[Hash(ip - 1, ...)].
-                ulong temp = Utilities.GetULong(uncompressed, ipIndex - 1);
-                uint prevInt = (uint) temp;
-                inputBytes = (uint)(temp >> 8);
-
-                // add hash starting with previous byte
-                uint prevHash = HashBytes(prevInt, shift);
-                hashTable[prevHash] = (short) (ipIndex - uncompressedOffset - 1);
-
-                // update hash of current byte
-                uint curHash = HashBytes(inputBytes, shift);
-
-                candidateIndex = uncompressedOffset + hashTable[curHash];
-                hashTable[curHash] = (short) (ipIndex - uncompressedOffset);
-
-            } while (inputBytes == Utilities.GetUInt(uncompressed, candidateIndex));
-            return new int[]{ipIndex, compressedIndex};
-        }
-
-        private static int EmitCopyLessThan64(byte[] output, int outputIndex, int offset, int length)
+        private int EmitCopyLessThan64(byte[] output, int outputIndex, int offset, int length)
         {
             Debug.Assert( offset >= 0);
             Debug.Assert( length <= 64);
@@ -194,17 +187,16 @@ namespace Snappy.Sharp
             if ((length < 12) && (offset < 2048)) {
                 int lenMinus4 = length - 4;
                 Debug.Assert(lenMinus4 < 8);            // Must fit in 3 bits
-                output[outputIndex++] = (byte) (COPY_1_BYTE_OFFSET | ((lenMinus4) << 2) | ((offset >> 8) << 5));
+                output[outputIndex++] = (byte) (Snappy.COPY_1_BYTE_OFFSET | ((lenMinus4) << 2) | ((offset >> 8) << 5));
                 output[outputIndex++] = (byte) (offset);
             }
             else {
-                output[outputIndex++] = (byte) (COPY_2_BYTE_OFFSET | ((length - 1) << 2));
+                output[outputIndex++] = (byte) (Snappy.COPY_2_BYTE_OFFSET | ((length - 1) << 2));
                 output[outputIndex++] = (byte) (offset);
                 output[outputIndex++] = (byte) (offset >> 8);
             }
             return outputIndex;
         }
-
 
         private int EmitCopy(byte[] compressed, int compressedIndex, int offset, int length)
         {
@@ -229,35 +221,36 @@ namespace Snappy.Sharp
 
         // Return the largest n such that
         //
-        //   s1[0,n-1] == s2[0,n-1]
-        //   and n <= (s2_limit - s2).
+        //   s1[s1Index,n-1] == s1[s2Index,n-1]
+        //   and n <= (s2Limit - s2Index).
         //
-        // Does not read *s2_limit or beyond.
+        // Does not read s2Limit or beyond.
         // Does not read *(s1 + (s2_limit - s2)) or beyond.
-        // Requires that s2_limit >= s2.
-        private int FindMatchLength(byte[] s1, int s1Index, byte[] s2, int s2Index, int s2Limit)
+        // Requires that s2Limit >= s2.
+        private int FindMatchLength(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
+#if false
             int matched = 0;
-            while (s2Index + matched < s2Limit && s1[s1Index + matched] == s2[s2Index + matched]) {
+            while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                 ++matched;
             }
             return matched;
+#else
             //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
-#if false
             int matched = 0;
 
-            while (s1Index + matched < s1.Length && s2Index + matched <= s2Limit - 4 && Utilities.GetUInt(s2, s2Index + matched) == Utilities.GetUInt(s1, s1Index + matched)) {
+            while (s1Index + matched < s1.Length && s2Index + matched <= s2Limit - 4 && Utilities.GetUInt(s1, s2Index + matched) == Utilities.GetUInt(s1, s1Index + matched)) {
                 matched += 4;
             }
 
             if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 4 && s1Index + matched < s1.Length) {
-                int x = (int)(Utilities.GetUInt(s2, s2Index + matched) ^ Utilities.GetUInt(s1, s1Index + matched));
+                int x = (int)(Utilities.GetUInt(s1, s2Index + matched) ^ Utilities.GetUInt(s1, s1Index + matched));
                 int matchingBits = Utilities.NumberOfTrailingZeros(x);
                 matched += matchingBits >> 3;
             }
             else {
-                while (s2Index + matched < s2Limit && s1[s1Index + matched] == s2[s2Index + matched]) {
+                while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                     ++matched;
                 }
             }
@@ -283,7 +276,7 @@ namespace Snappy.Sharp
         {
             if (size < 60)
             {
-                output[outputIndex++] = (byte)(LITERAL | (size << 2));
+                output[outputIndex++] = (byte)(Snappy.LITERAL | (size << 2));
             }
             else
             {
@@ -299,37 +292,9 @@ namespace Snappy.Sharp
                 }
                 Debug.Assert(count >= 1);
                 Debug.Assert(count <= 4);
-                output[baseIndex] = (byte)(LITERAL | ((59 + count) << 2));
+                output[baseIndex] = (byte)(Snappy.LITERAL | ((59 + count) << 2));
             }
             return outputIndex;
-        }
-
-        internal int[] FindCandidate(byte[] input, int ipIndex, int ipLimit, int inputOffset, int shift, short[] table, int skip)
-        {
-
-            int candidateIndex = 0;
-            for (ipIndex += 1; ipIndex + BytesBetweenHashLookups(skip) <= ipLimit; ipIndex += BytesBetweenHashLookups(skip++))
-            {
-                // hash the 4 bytes starting at the input pointer
-                uint currentInt = Utilities.GetUInt(input, ipIndex);
-                uint hash = HashBytes(currentInt, shift);
-
-                // get the position of a 4 bytes sequence with the same hash
-                candidateIndex = inputOffset + table[hash];
-                Debug.Assert(candidateIndex >= 0);
-                Debug.Assert(candidateIndex < ipIndex);
-
-                // update the hash to point to the current position
-                table[hash] = (short)(ipIndex - inputOffset);
-
-                // if the 4 byte sequence a the candidate index matches the sequence at the
-                // current position, proceed to the next phase
-                if (currentInt == Utilities.GetUInt(input, candidateIndex))
-                {
-                    break;
-                }
-            }
-            return new int[] { ipIndex, candidateIndex, skip };
         }
 
         internal int GetHashTableSize(int inputSize)
@@ -351,12 +316,7 @@ namespace Snappy.Sharp
             return hashTableSize;
         }
 
-        private int BytesBetweenHashLookups(int skip)
-        {
-            return (skip >> 5);
-        }
-
-        private uint HashBytes(uint bytes, int shift)
+        private uint Hash(uint bytes, int shift)
         {
             const int kMul = 0x1e35a7bd;
             return (bytes * kMul) >> shift;
