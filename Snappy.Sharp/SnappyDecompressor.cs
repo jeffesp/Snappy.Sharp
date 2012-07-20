@@ -51,19 +51,19 @@ namespace Snappy.Sharp
 
             while (ipIndex < ipLimit - 5)
             {
-                int opCode = input[ipIndex++];
-                int entry = opLookupTable[opCode];
-                int trailerBytes = entry >> 11;
+                byte opCode = input[ipIndex++];
+                ushort entry = opLookupTable[opCode];
+                byte trailerBytes = (byte) (entry >> 11);
 
-                int trailer = (int)(Utilities.GetUInt(input, ipIndex) & wordmask[trailerBytes]);
+                uint trailer = (Utilities.GetUInt(input, ipIndex) & wordmask[trailerBytes]);
 
                 // advance the ipIndex past the op codes
                 ipIndex += entry >> 11;
-                int length = (entry & 0xff);
+                int length = entry & 0xff;
 
                 if ((opCode & 0x3) == Snappy.LITERAL)
                 {
-                    int literalLength = length + trailer;
+                    int literalLength = (int) (length + trailer);
                     CopyLiteral(input, ipIndex, output, opIndex, literalLength);
                     ipIndex += literalLength;
                     opIndex += literalLength;
@@ -74,7 +74,7 @@ namespace Snappy.Sharp
                     // those bits, we get copyOffset (since the bit-field starts at
                     // bit 8).
                     int copyOffset = entry & 0x700;
-                    copyOffset += trailer;
+                    copyOffset += (int)trailer;
 
                     // inline to force hot-spot to keep inline
                     //
@@ -136,34 +136,28 @@ namespace Snappy.Sharp
         private int[] decompressTagSlow(byte[] input, int ipIndex, byte[] output, int outputLimit, int outputOffset, int opIndex)
         {
             // read the op code
-            int opCode = input[ipIndex++];
-            int entry = opLookupTable[opCode];
-            int trailerBytes = entry >> 11;
+            byte opCode = input[ipIndex++];
+            ushort entry = opLookupTable[opCode];
+            byte trailerBytes = (byte) (entry >> 11);
             //
             // Key difference here
             //
-            int trailer = 0;
-            switch (trailerBytes) {
-                case 4:
-                    trailer = (input[ipIndex + 3] & 0xff) << 24;
-                    break;
-                case 3:
-                    trailer |= (input[ipIndex + 2] & 0xff) << 16;
-                    break;
-                case 2:
-                    trailer |= (input[ipIndex + 1] & 0xff) << 8;
-                    break;
-                case 1:
-                    trailer |= (input[ipIndex] & 0xff);
-                    break;
-            }
+            uint trailer = 0;
+            if (trailerBytes >= 4)
+                trailer = (uint) ((input[ipIndex + 3] & 0xff) << 24);
+            if (trailerBytes >= 3)
+                trailer |= (uint) ((input[ipIndex + 2] & 0xff) << 16);
+            if (trailerBytes >= 2)
+                trailer |= (uint) ((input[ipIndex + 1] & 0xff) << 8);
+            if (trailerBytes >= 1)
+                trailer |= (uint) (input[ipIndex] & 0xff);
 
             // advance the ipIndex past the op codes
             ipIndex += trailerBytes;
             int length = entry & 0xff;
 
             if ((opCode & 0x3) == Snappy.LITERAL) {
-                int literalLength = length + trailer;
+                int literalLength = (int) (length + trailer);
                 CopyLiteral(input, ipIndex, output, opIndex, literalLength);
                 ipIndex += literalLength;
                 opIndex += literalLength;
@@ -173,7 +167,7 @@ namespace Snappy.Sharp
                 // those bits, we get copyOffset (since the bit-field starts at
                 // bit 8).
                 int copyOffset = entry & 0x700;
-                copyOffset += trailer;
+                copyOffset += (int)trailer;
 
                 // TODO: Java inlined this function manually. Investigate.
                 CopyCopy(output, length, opIndex, outputLimit, copyOffset);
@@ -228,7 +222,8 @@ namespace Snappy.Sharp
                     Buffer.BlockCopy(input, ipIndex, output, opIndex, length);
                 }
             }
-        }
+        }
+
         private void CopyCopy(byte[] output, int length, int opIndex, int outputLimit, int copyOffset)
         {
             int spaceLeft = outputLimit - opIndex;

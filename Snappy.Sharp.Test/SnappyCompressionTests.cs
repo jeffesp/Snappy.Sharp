@@ -47,10 +47,28 @@ namespace Snappy.Sharp.Test
             Assert.Equal(data, bytes);
         }
 
+        [Fact]
+        public void compress_multiple_blocks()
+        {
+            var data = GetRandomData(1 << 20); // 1MB in 32k blocks
+            var target = new SnappyCompressor();
+
+            int compressedSize = target.MaxCompressedLength(data.Length);
+            var compressed = new byte[compressedSize];
+
+            int result = target.Compress(data, 0, data.Length, compressed);
+
+            Assert.True(result < compressedSize); 
+            var x = new SnappyDecompressor();
+
+            var bytes = x.Decompress(compressed, 0, result);
+            Assert.Equal(data, bytes);
+        }
+
 
         [Theory]
         [PropertyData("CompressedDataSizes")]
-        public void compress_writes_uncompressed_length_first(int dataSize, byte storageBytes)
+        public void compress_writes_uncompressed_length_first(int dataSize, int storageBytes)
         {
             var data = GetRandomData(dataSize);
             var target = new SnappyCompressor();
