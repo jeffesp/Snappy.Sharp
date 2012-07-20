@@ -22,10 +22,11 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize);
+            Assert.Equal(12, result);
 
-            var x = new SnappyDecompressor();
-
-            var bytes = x.Decompress(compressed, 0, result);
+            // TODO: instead of decompressing, we should traverse the buffer looking for tag bytes and interpreting them.
+            var decompressor = new SnappyDecompressor();
+            var bytes = decompressor.Decompress(compressed, 0, result);
             Console.Write(Encoding.Default.GetString(bytes));
         }
 
@@ -41,9 +42,9 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize); 
-            var x = new SnappyDecompressor();
 
-            var bytes = x.Decompress(compressed, 0, result);
+            var decomperssor = new SnappyDecompressor();
+            var bytes = decomperssor.Decompress(compressed, 0, result);
             Assert.Equal(data, bytes);
         }
 
@@ -78,7 +79,8 @@ namespace Snappy.Sharp.Test
 
             target.Compress(data, 0, data.Length, compressed);
 
-            var result = SnappyDecompressor.ReadUncompressedLength(compressed, 0);
+            var decompressor = new SnappyDecompressor();
+            var result = decompressor.ReadUncompressedLength(compressed, 0);
 
             Assert.Equal(dataSize, result[0]);
             Assert.Equal(storageBytes, result[1]);

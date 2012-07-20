@@ -10,7 +10,7 @@ namespace Snappy.Sharp
         private const int MAX_INCREMENT_COPY_OVERFLOW = 20;
         private const int bitMask = 0x80;
 
-        public static int[] ReadUncompressedLength(byte[] data, int offset)
+        public int[] ReadUncompressedLength(byte[] data, int offset)
         {
             int sum = 0, currentShift = 0;
             while ((data[offset] & bitMask) != 0)

@@ -10,12 +10,13 @@ namespace Snappy.Sharp
         internal const int COPY_2_BYTE_OFFSET = 2;
         internal const int COPY_4_BYTE_OFFSET = 3;
 
-        public static long MaxCompressedLength(long sourceLength)
+        public static int MaxCompressedLength(int sourceLength)
         {
-            return 0;
+            var compressor = new SnappyCompressor();
+            return compressor.MaxCompressedLength(sourceLength);
         }
 
-        public static void Compress(byte[] uncompressed, byte[] compressed)
+        public static byte[] Compress(byte[] uncompressed)
         {
             throw new NotImplementedException();
         }
@@ -25,12 +26,13 @@ namespace Snappy.Sharp
             throw new NotImplementedException();
         }
 
-        public static long GetUncompressedLength(byte[] compressed, int offset)
+        public static int GetUncompressedLength(byte[] compressed, int offset = 0)
         {
-            return 0;
+            var decompressor = new SnappyDecompressor();
+            return decompressor.ReadUncompressedLength(compressed, offset)[0];
         }
 
-        public static void Uncompress(byte[] compressed, byte[] uncompressed)
+        public static byte[] Uncompress(byte[] compressed)
         {
             throw new NotImplementedException();
         }

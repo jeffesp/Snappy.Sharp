@@ -45,7 +45,6 @@ namespace Snappy.Sharp.Test
         private static int[] ReadLengthData(byte[] data)
         {
             var target = new SnappyDecompressor();
-
             return target.ReadUncompressedLength(data, 0);
         }
     }
