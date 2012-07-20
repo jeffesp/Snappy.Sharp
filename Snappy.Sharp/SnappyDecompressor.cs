@@ -10,7 +10,7 @@ namespace Snappy.Sharp
         private const int MAX_INCREMENT_COPY_OVERFLOW = 20;
         private const int bitMask = 0x80;
 
-        public int[] ReadUncompressedLength(byte[] data, int offset)
+        public static int[] ReadUncompressedLength(byte[] data, int offset)
         {
             int sum = 0, currentShift = 0;
             while ((data[offset] & bitMask) != 0)
@@ -115,7 +115,7 @@ namespace Snappy.Sharp
             }
 
             for (; ipIndex < ipLimit; ) {
-                int[] result = decompressTagSlow(input, ipIndex, output, outputLimit, outputOffset, opIndex);
+                int[] result = DecompressTagSlow(input, ipIndex, output, outputLimit, outputOffset, opIndex);
                 ipIndex = result[0];
                 opIndex = result[1];
             }
@@ -133,7 +133,7 @@ namespace Snappy.Sharp
          * versions of hot-spot this code can be integrated into the main loop but for now
          * it is worth the extra maintenance pain to get the extra 10-20%.
          */
-        private int[] decompressTagSlow(byte[] input, int ipIndex, byte[] output, int outputLimit, int outputOffset, int opIndex)
+        private int[] DecompressTagSlow(byte[] input, int ipIndex, byte[] output, int outputLimit, int outputOffset, int opIndex)
         {
             // read the op code
             byte opCode = input[ipIndex++];

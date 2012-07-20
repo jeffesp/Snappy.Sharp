@@ -59,9 +59,9 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize); 
-            var x = new SnappyDecompressor();
 
-            var bytes = x.Decompress(compressed, 0, result);
+            var decompressor = new SnappyDecompressor();
+            var bytes = decompressor.Decompress(compressed, 0, result);
             Assert.Equal(data, bytes);
         }
 
@@ -78,7 +78,10 @@ namespace Snappy.Sharp.Test
 
             target.Compress(data, 0, data.Length, compressed);
 
-            Assert.Equal(dataSize, compressed[0]);
+            var result = SnappyDecompressor.ReadUncompressedLength(compressed, 0);
+
+            Assert.Equal(dataSize, result[0]);
+            Assert.Equal(storageBytes, result[1]);
         }
 
         [Theory]
