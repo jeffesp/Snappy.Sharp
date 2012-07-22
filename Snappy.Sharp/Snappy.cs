@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.IO;
 
 namespace Snappy.Sharp
@@ -18,7 +19,10 @@ namespace Snappy.Sharp
 
         public static byte[] Compress(byte[] uncompressed)
         {
-            throw new NotImplementedException();
+            var target = new SnappyCompressor();
+            var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
+            var count = target.Compress(uncompressed, 0, uncompressed.Length, result);
+            return result.Take(count).ToArray();
         }
 
         public static void Compress(Stream uncompressed, SnappyStream compressed)

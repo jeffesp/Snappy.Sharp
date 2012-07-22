@@ -230,7 +230,7 @@ namespace Snappy.Sharp
         private int FindMatchLength(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
-#if false
+#if false 
             int matched = 0;
             while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                 ++matched;
@@ -239,13 +239,16 @@ namespace Snappy.Sharp
 #else
             //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
             int matched = 0;
-
-            while (s1Index + matched < s1.Length && s2Index + matched <= s2Limit - 4 && Utilities.GetUInt(s1, s2Index + matched) == Utilities.GetUInt(s1, s1Index + matched)) {
+            uint a1 = Utilities.GetUInt(s1, s2Index + matched);
+            uint a2 = Utilities.GetUInt(s1, s1Index + matched);
+            while (s2Index + matched <= s2Limit - 4 &&  a1 == a2) {
                 matched += 4;
+                a1 = Utilities.GetUInt(s1, s2Index + matched);
+                a2 = Utilities.GetUInt(s1, s1Index + matched);
             }
 
             if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 4 && s1Index + matched < s1.Length) {
-                int x = (int)(Utilities.GetUInt(s1, s2Index + matched) ^ Utilities.GetUInt(s1, s1Index + matched));
+                int x = (int)(a1 ^ a2);
                 int matchingBits = Utilities.NumberOfTrailingZeros(x);
                 matched += matchingBits >> 3;
             }
