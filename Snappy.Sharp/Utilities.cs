@@ -36,7 +36,7 @@
         }
 
         // Function from http://aggregate.org/MAGIC/
-        public static int Log2Floor(int x)
+        public static uint Log2Floor(uint x)
         {
             x |= (x >> 1);
             x |= (x >> 2);
@@ -48,7 +48,7 @@
         }
 
         // Function from http://aggregate.org/MAGIC/
-        public static int NumberOfLeadingZeros(int x)
+        public static uint NumberOfLeadingZeros(uint x)
         {
             x |= (x >> 1);
             x |= (x >> 2);
@@ -59,13 +59,13 @@
         }
 
         // Function from http://aggregate.org/MAGIC/
-        public static int NumberOfTrailingZeros(int x)
+        public static uint NumberOfTrailingZeros(uint x)
         {
-            return NumberOfOnes((x & -x) - 1);
+            return NumberOfOnes((uint) ((x & -x) - 1));
         }
 
         // Function from http://aggregate.org/MAGIC/
-        public static int NumberOfOnes(int x)
+        public static uint NumberOfOnes(uint x)
         {
             x -= ((x >> 1) & 0x55555555);
             x = (((x >> 2) & 0x33333333) + (x & 0x33333333));

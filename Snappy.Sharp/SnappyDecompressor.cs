@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -178,11 +179,9 @@ namespace Snappy.Sharp
 
         private void CopyLiteral(byte[] input, int ipIndex, byte[] output, int opIndex, int length)
         {
-            /*
-            assert length > 0;
-            assert ipIndex >= 0;
-            assert opIndex >= 0;
-            */
+            Debug.Assert(length > 0);
+            Debug.Assert(ipIndex >= 0);
+            Debug.Assert(opIndex >= 0);
 
             int spaceLeft = output.Length - opIndex;
             int readableBytes = input.Length - ipIndex;
@@ -259,11 +258,16 @@ namespace Snappy.Sharp
          * Note that this does not match the semantics of either memcpy()
          * or memmove().
          */
-        private void IncrementalCopy(byte[] src, int srcIndex, byte[] op, int opIndex, int length)
+        private void IncrementalCopy(byte[] source, int srcIndex, byte[] output, int opIndex, int length)
         {
+            Debug.Assert(source != null);
+            Debug.Assert(output != null);
+            Debug.Assert(srcIndex + length < source.Length);
+            Debug.Assert(opIndex + length < output.Length);
+
             do
             {
-                op[opIndex++] = src[srcIndex++];
+                output[opIndex++] = source[srcIndex++];
             } while (--length > 0);
         }
 

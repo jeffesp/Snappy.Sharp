@@ -55,7 +55,7 @@ namespace Snappy.Sharp
                 throw new ArgumentOutOfRangeException("inputSize", "input size must be less than block size.");
             if ((hashTable.Length & (hashTable.Length - 1)) != 0)
                 throw new ArgumentOutOfRangeException("hashTable", "hash table length must be a power of two.");
-            int shift = 32 - Utilities.Log2Floor(hashTable.Length);
+            int shift = (int) (32 - Utilities.Log2Floor((uint)hashTable.Length));
             //DCHECK_EQ(static_cast<int>(kuint32max >> shift), table_size - 1);
             int ipEnd = inputOffset + inputSize;
             int baseInputIndex = inputIndex;
@@ -236,8 +236,8 @@ namespace Snappy.Sharp
                 ++matched;
             }
             return matched;
-#else
-            //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
+
+           //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
             int matched = 0;
             uint a1 = Utilities.GetUInt(s1, s2Index + matched);
             uint a2 = Utilities.GetUInt(s1, s1Index + matched);
@@ -251,6 +251,33 @@ namespace Snappy.Sharp
                 int x = (int)(a1 ^ a2);
                 int matchingBits = Utilities.NumberOfTrailingZeros(x);
                 matched += matchingBits >> 3;
+            }
+            else {
+                while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
+                    ++matched;
+                }
+            }
+            return matched;
+#else
+           //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
+            int matched = 0;
+            ulong a1 = Utilities.GetULong(s1, s2Index + matched);
+            ulong a2 = Utilities.GetULong(s1, s1Index + matched);
+            while (s2Index + matched <= s2Limit - 8 &&  a1 == a2) {
+                matched += 8;
+                a1 = Utilities.GetULong(s1, s2Index + matched);
+                a2 = Utilities.GetULong(s1, s1Index + matched);
+            }
+
+            if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 8 && s1Index + matched < s1.Length) {
+                ulong x = (a1 ^ a2);
+                uint bottomBits = (uint) x;
+                if (bottomBits == 0)
+                {
+                    return (int) (32 + Utilities.NumberOfTrailingZeros((uint) (x >> 32)));
+                }
+                uint matchingBits = Utilities.NumberOfTrailingZeros(bottomBits);
+                matched += (int)matchingBits >> 3;
             }
             else {
                 while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {

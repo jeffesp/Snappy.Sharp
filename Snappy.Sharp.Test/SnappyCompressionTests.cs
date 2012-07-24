@@ -11,6 +11,20 @@ namespace Snappy.Sharp.Test
     public class SnappyCompressionTests
     {
         [Fact]
+        public void compress_constant_data_is_one_literal_and_one_copy()
+        {
+            // 1024 a's
+            var data = Encoding.Default.GetBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); 
+            var target = new SnappyCompressor();
+
+            int compressedSize = target.MaxCompressedLength(data.Length);
+            var compressed = new byte[compressedSize];
+
+            int result = target.Compress(data, 0, data.Length, compressed);
+
+        }
+
+        [Fact]
         public void compress_returns_bytes_copied()
         {
             var data = Encoding.Default.GetBytes("ThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThisThis"); 
@@ -51,7 +65,11 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void compress_multiple_blocks()
         {
-            var data = GetRandomData(1 << 20); // 1MB in 32k blocks
+            /*!
+             * this ends up being uncompressible because it is random.
+             */
+            var rand = new Random().Next(1 << 4, 1 << 10);
+            var data = GetRandomData((1 << 20) + rand); // 1MB  + a bit random so there is an uneven block at end.
             var target = new SnappyCompressor();
 
             int compressedSize = target.MaxCompressedLength(data.Length);
