@@ -57,7 +57,7 @@ namespace Snappy.Sharp
                 throw new ArgumentOutOfRangeException("hashTable", "hash table length must be a power of two.");
             int shift = (int) (32 - Utilities.Log2Floor((uint)hashTable.Length));
             //DCHECK_EQ(static_cast<int>(kuint32max >> shift), table_size - 1);
-            int ipEnd = inputOffset + inputSize;
+            int inputEnd = inputOffset + inputSize;
             int baseInputIndex = inputIndex;
             // Bytes in [next_emit, ip) will be emitted as literal bytes.  Or
             // [next_emit, ip_end) after the main loop.
@@ -67,7 +67,7 @@ namespace Snappy.Sharp
             {
                 int ipLimit = inputOffset + inputSize - INPUT_MARGIN_BYTES;
 
-                uint currentIndexBytes = Utilities.GetUInt(input, ++inputIndex);
+                uint currentIndexBytes = Utilities.GetFourBytes(input, ++inputIndex);
                 for (uint nextHash = Hash(currentIndexBytes, shift); ; )
                 {
                     Debug.Assert(nextEmitIndex < inputIndex);
@@ -104,25 +104,25 @@ namespace Snappy.Sharp
                     {
                         inputIndex = nextIp;
                         uint hash = nextHash;
-                        //DCHECK_EQ(hash, Hash(inputIndex, shift));
+                        Debug.Assert(hash == Hash(Utilities.GetFourBytes(input, inputIndex), shift));
                         nextIp = (int)(inputIndex + (skip++ >> 5));
                         if (nextIp > ipLimit)
                         {
                             goto emit_remainder;
                         }
-                        currentIndexBytes = Utilities.GetUInt(input, nextIp);
+                        currentIndexBytes = Utilities.GetFourBytes(input, nextIp);
                         nextHash = Hash(currentIndexBytes, shift);
                         candidate = baseInputIndex + hashTable[hash];
-                        //DCHECK_GE(candidate, baseInputIndex);
-                        //DCHECK_LT(candidate, inputIndex);
+                        Debug.Assert(candidate >= baseInputIndex);
+                        Debug.Assert(candidate < inputIndex);
 
                         hashTable[hash] = (short)(inputIndex - baseInputIndex);
-                    } while (Utilities.GetUInt(input, inputIndex) != Utilities.GetUInt(input, candidate));
+                    } while (Utilities.GetFourBytes(input, inputIndex) != Utilities.GetFourBytes(input, candidate));
 
                     // Step 2: A 4-byte match has been found.  We'll later see if more
                     // than 4 bytes match.  But, prior to the match, input
                     // bytes [next_emit, ip) are unmatched.  Emit them as "literal bytes."
-                    //DCHECK_LE(nextEmitIndex + 16, ipEnd);
+                    Debug.Assert(nextEmitIndex + 16 < inputEnd);
                     outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputIndex - nextEmitIndex, true);
 
                     // Step 3: Call EmitCopy, and then see if another EmitCopy could
@@ -141,7 +141,7 @@ namespace Snappy.Sharp
                         // We have a 4-byte match at ip, and no need to emit any
                         // "literal bytes" prior to ip.
                         int baseIndex = inputIndex;
-                        int matched = 4 + FindMatchLength(input, candidate + 4, inputIndex + 4, ipEnd);
+                        int matched = 4 + FindMatchLength(input, candidate + 4, inputIndex + 4, inputEnd);
                         inputIndex += matched;
                         int offset = baseIndex - candidate;
                         //DCHECK_EQ(0, memcmp(baseIndex, candidate, matched));
@@ -154,24 +154,24 @@ namespace Snappy.Sharp
                         {
                             goto emit_remainder;
                         }
-                        uint prevHash = Hash(Utilities.GetUInt(input, insertTail), shift);
+                        uint prevHash = Hash(Utilities.GetFourBytes(input, insertTail), shift);
                         hashTable[prevHash] = (short)(inputIndex - baseInputIndex - 1);
-                        uint curHash = Hash(Utilities.GetUInt(input, insertTail + 1), shift);
+                        uint curHash = Hash(Utilities.GetFourBytes(input, insertTail + 1), shift);
                         candidate = baseInputIndex + hashTable[curHash];
-                        candidateBytes = Utilities.GetUInt(input, candidate);
+                        candidateBytes = Utilities.GetFourBytes(input, candidate);
                         hashTable[curHash] = (short)(inputIndex - baseInputIndex);
-                    } while (Utilities.GetUInt(input, insertTail + 1) == candidateBytes);
+                    } while (Utilities.GetFourBytes(input, insertTail + 1) == candidateBytes);
 
-                    nextHash = Hash(Utilities.GetUInt(input, insertTail + 2), shift);
+                    nextHash = Hash(Utilities.GetFourBytes(input, insertTail + 2), shift);
                     ++inputIndex;
                 }
             }
 
         emit_remainder:
             // Emit the remaining bytes as a literal
-            if (nextEmitIndex < ipEnd)
+            if (nextEmitIndex < inputEnd)
             {
-                outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, ipEnd - nextEmitIndex, false);
+                outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputEnd - nextEmitIndex, false);
             }
 
             return outputIndex;
@@ -230,53 +230,24 @@ namespace Snappy.Sharp
         private int FindMatchLength(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
-#if false 
             int matched = 0;
             while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                 ++matched;
             }
             return matched;
-
            //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
-            int matched = 0;
-            uint a1 = Utilities.GetUInt(s1, s2Index + matched);
-            uint a2 = Utilities.GetUInt(s1, s1Index + matched);
-            while (s2Index + matched <= s2Limit - 4 &&  a1 == a2) {
+            /*
+            uint a1 = Utilities.GetFourBytes(s1, s2Index + matched);
+            uint a2 = Utilities.GetFourBytes(s1, s1Index + matched);
+            while ((s2Index + matched + 4 < s2Limit - 4) &&  a1 == a2) {
                 matched += 4;
-                a1 = Utilities.GetUInt(s1, s2Index + matched);
-                a2 = Utilities.GetUInt(s1, s1Index + matched);
+                a1 = Utilities.GetFourBytes(s1, s2Index + matched);
+                a2 = Utilities.GetFourBytes(s1, s1Index + matched);
             }
 
             if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 4 && s1Index + matched < s1.Length) {
-                int x = (int)(a1 ^ a2);
-                int matchingBits = Utilities.NumberOfTrailingZeros(x);
-                matched += matchingBits >> 3;
-            }
-            else {
-                while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
-                    ++matched;
-                }
-            }
-            return matched;
-#else
-           //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
-            int matched = 0;
-            ulong a1 = Utilities.GetULong(s1, s2Index + matched);
-            ulong a2 = Utilities.GetULong(s1, s1Index + matched);
-            while (s2Index + matched <= s2Limit - 8 &&  a1 == a2) {
-                matched += 8;
-                a1 = Utilities.GetULong(s1, s2Index + matched);
-                a2 = Utilities.GetULong(s1, s1Index + matched);
-            }
-
-            if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 8 && s1Index + matched < s1.Length) {
-                ulong x = (a1 ^ a2);
-                uint bottomBits = (uint) x;
-                if (bottomBits == 0)
-                {
-                    return (int) (32 + Utilities.NumberOfTrailingZeros((uint) (x >> 32)));
-                }
-                uint matchingBits = Utilities.NumberOfTrailingZeros(bottomBits);
+                uint x = (a1 ^ a2);
+                uint matchingBits = Utilities.NumberOfTrailingZeros(x);
                 matched += (int)matchingBits >> 3;
             }
             else {
@@ -285,7 +256,7 @@ namespace Snappy.Sharp
                 }
             }
             return matched;
-#endif
+            */
         }
 
         internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length, bool allowFastPath)

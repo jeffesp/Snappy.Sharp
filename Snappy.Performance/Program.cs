@@ -1,50 +1,13 @@
-﻿#if false
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 
-using Snappy.Sharp;
-
-namespace Snapp.Performance
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            foreach (string fileName in Directory.GetFiles(args[0]))
-            {
-                int size = 0;
-                byte[] uncompressed = File.ReadAllBytes(fileName);
-                var target = new SnappyCompressor();
-                var s = Stopwatch.StartNew();
-                for (int i = 0; i < 200; i++)
-                {
-                    s.Start();
-                    var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
-                    size = target.Compress(uncompressed, 0, uncompressed.Length, result);
-                    s.Stop();
-                }
-
-                Console.WriteLine(String.Format("{0,-20}\t{4:F1}x\t{1:F8}\t{2:F8}\t{3:F2}",
-                                                Path.GetFileName(fileName),
-                                                (((double)s.ElapsedMilliseconds / 1000) / 200), // convert milliseconds to seconds, divide by iterations 
-                                                ((double)uncompressed.Length / 1024 / 1024), // convert B to MB 
-                                                ((double)uncompressed.Length / 1024 / 1024) / (((double)s.ElapsedMilliseconds / 1000) / 200),
-                                                (double)uncompressed.Length / size
-                                      ));
-            }
-        }
-    }
-}
-#else
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
+using CommandLine;
 
 using Snappy.Sharp;
 
@@ -54,6 +17,7 @@ namespace Snappy.Performance
     {
         private class CompressionResult
         {
+            public CompressionDirection Direction { get; set; }
             public string FileName { get; set; }
             public long FileBytes { get; set; }
             public TimeSpan ElapsedTime { get; set; }
@@ -62,7 +26,7 @@ namespace Snappy.Performance
 
             public double CompresionPercentage
             {
-                get { return ((double)CompressedSize/FileBytes)*100; }
+                get { return ((double)CompressedSize/FileBytes); }
             }
 
             public double Throughput
@@ -72,11 +36,38 @@ namespace Snappy.Performance
 
             public override string ToString()
             {
-                return String.Format("{0,-20}\t{1}\t{2:F1}%\t{3:F2}",
+                return String.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}",
                                      Path.GetFileName(FileName),
-                                     FileBytes,
-                                     CompresionPercentage,
-                                     Throughput);
+                                     ((long)(ElapsedTime.TotalMilliseconds * 1000 * 1000)).ToString("D"),
+                                     Iterations,
+                                     Throughput,
+                                     CompresionPercentage);
+            }
+
+            public static string HeaderString = String.Format("{0,-20}\t{1,10}\t{2}\t{3}\t{4}", "File", "Time (ns)", "Iter", "MB/s", "Compression");
+
+            public XElement ToXml()
+            {
+                var x = new XElement("Result",
+                    new XElement("FileName", Path.GetFileName(FileName)),
+                    new XElement("FileBytes", FileBytes),
+                    new XElement("CompressedSize", CompressedSize),
+                    new XElement("Ticks", ElapsedTime.Ticks),
+                    new XElement("Iterations", Iterations)
+                );
+                x.SetAttributeValue("direction", Direction);
+                return x;
+            }
+            public static CompressionResult FromXml(XElement xml)
+            {
+                return new CompressionResult
+                       {
+                            FileName = xml.Element("FileName").Value,
+                            FileBytes = Int64.Parse(xml.Element("FileBytes").Value),
+                            CompressedSize= Int64.Parse(xml.Element("CompressedSize").Value),
+                            ElapsedTime = new TimeSpan(Int64.Parse(xml.Element("Ticks").Value)),
+                            Iterations = Int32.Parse(xml.Element("Iterations").Value),
+                       };
             }
         }
         static CompressionResult RunCompression(string fileName, int iterations)
@@ -90,15 +81,16 @@ namespace Snappy.Performance
 
             for (int i = 0; i < iterations; i++)
             {
-                s.Start();
                 var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
+                s.Start();
                 size = target.Compress(uncompressed, 0, uncompressed.Length, result);
                 s.Stop();
             }
 
             return new CompressionResult
                        {
-                           FileName =  Path.GetFileName(fileName),
+                           Direction = CompressionDirection.Compress,
+                           FileName =  FileMap[Path.GetFileName(fileName)],
                            CompressedSize = size,
                            FileBytes = uncompressed.Length,
                            ElapsedTime = s.Elapsed,
@@ -122,30 +114,192 @@ namespace Snappy.Performance
 
             return new CompressionResult
                        {
-                           FileName =  Path.GetFileName(fileName),
+                           Direction = CompressionDirection.Decompress,
+                           FileName =  FileMap[Path.GetFileName(fileName)],
                            CompressedSize = size,
                            FileBytes = uncompressed.Length,
                            ElapsedTime = s.Elapsed,
                            Iterations = iterations
                        };
         }
-        static void Main(string[] args)
-        {
-            if (args.Length != 1)
-            {
-                Console.WriteLine("usage: Snappy.Performance.exe <directory of files to test>");
-                return;
-            }
-            List<CompressionResult> results = new List<CompressionResult>();
-            foreach (string fileName in Directory.GetFiles(args[0]))
-            {
-                results.Add(RunCompression(fileName, 1));
-                results.Add(RunDecompression(fileName, 1));
-            }
 
-            foreach (var r in results) Console.WriteLine(r);
+        private class Options
+        {
+            [Option("p", "pref", DefaultValue = false, HelpText = "Run performance.")]
+            public bool Performance { get; set; }
+
+            [Option("c", "compare", DefaultValue = false, HelpText = "Compare to previous results.")]
+            public bool Compare { get; set; }
+
+            [Option("v", "verify", DefaultValue = true, HelpText = "Run readfile => compress => decompress => compare results")]
+            public bool Verify { get; set; }
+
+            [Option("x", "outputxml", DefaultValue = true, HelpText = "Save results to xml file.")]
+            public bool WriteXml { get; set; }
+
+            [Option("o", "xmldirectory", HelpText = "Directory to load/store xml results.", DefaultValue = @"C:\temp\snappyoutput")]
+            public string XmlDirectory { get; set; }
+
+            [Option("d", "datadirectory", HelpText = "Directory to load test files.", DefaultValue = @"C:\temp\snappytestdata")]
+            public string TestDataDirectory { get; set; }
+
+            [HelpOption]
+            public string GetUsage()
+            {
+                // this without using CommandLine.Text
+                var usage = new StringBuilder();
+                usage.AppendLine("Snappy.Performance.exe");
+                usage.AppendLine("\t-c or --compare to indicate comparision to previous results");
+                usage.AppendLine("\t-v or --verify to indicate data verficiation of round trip");
+                usage.AppendLine("\t-x or --outputxml to indicate save output to xml");
+                usage.AppendLine("\t-d<directory> or --datadirectory<directory> specifies source directory for files to test");
+                usage.AppendLine("\t-o<directory> or --xmldirectory<directory> specifies directory to save xml results");
+                return usage.ToString();
+            }
         }
 
+        static string xmlPath = @"C:\temp\snappyoutput";
+        static void Main(string[] args)
+        {
+            const int iters = 1000;
+            var options = new Options();
+            if (CommandLineParser.Default.ParseArguments(args, options))
+            {
+                if (Directory.Exists(options.XmlDirectory))
+                    xmlPath = options.XmlDirectory;
+                else
+                {
+                    throw new DirectoryNotFoundException("Could not find specified xml directory.");
+                }
+
+                List<CompressionResult> results = new List<CompressionResult>();
+                foreach (string fileName in FileMap.Keys.Select(file => Path.Combine(options.TestDataDirectory, file)))
+                {
+                    if (options.Verify)
+                    {
+                        VerifyRoundTrip(fileName);
+                        Console.WriteLine("Verified {0}", Path.GetFileName(fileName));
+                    }
+                    if (options.Performance)
+                    {
+                        results.Add(RunCompression(fileName, iters));
+                        results.Add(RunDecompression(fileName, iters));
+                    }
+                }
+
+
+                if (options.Compare)
+                {
+                    Console.WriteLine(CompressionResult.HeaderString);
+                    CompareResults(results.Where(r => r.Direction == CompressionDirection.Decompress));
+                    Console.WriteLine();
+                    CompareResults(results.Where(r => r.Direction == CompressionDirection.Compress));
+
+                }
+                else
+                {
+                    foreach (var result in results.Where(r => r.Direction == CompressionDirection.Decompress))
+                        Console.WriteLine(result);
+
+                    foreach (var result in results.Where(r => r.Direction == CompressionDirection.Compress))
+                        Console.WriteLine(result);
+                }
+                if (options.WriteXml)
+                {
+                    WriteResultsAsXml(results);
+                }
+            }
+        }
+
+        private static void VerifyRoundTrip(string fileName)
+        {
+            int size = 0;
+            byte[] uncompressed = File.ReadAllBytes(fileName);
+            var compressor = new SnappyCompressor();
+            var result = new byte[compressor.MaxCompressedLength(uncompressed.Length)];
+            size = compressor.Compress(uncompressed, 0, uncompressed.Length, result);
+            Array.Resize(ref result, size);
+
+            var decompressor = new SnappyDecompressor();
+            var decompressed = decompressor.Decompress(result, 0, size);
+
+            byte[] source = File.ReadAllBytes(fileName);
+            Trace.Assert(source.Length == decompressed.Length);
+            for (int i = 0; i < uncompressed.Length; i++)
+                Trace.Assert(source[i] == decompressed[i]);
+        }
+
+        private static void WriteResultsAsXml(IEnumerable<CompressionResult> results)
+        {
+            XDocument xd = new XDocument();
+            xd.Add(new XElement("results", results.Select(r => r.ToXml())));
+            using (var file = new FileStream(Path.Combine(xmlPath, String.Format("{0:MMddyyy-hhmmss}.xml", DateTime.Now)), FileMode.CreateNew, FileAccess.Write))
+            using (var writer = XmlWriter.Create(file))
+            {
+                xd.WriteTo(writer);
+            }
+        }
+
+        private static void CompareResults(IEnumerable<CompressionResult> results)
+        {
+            var lastResult = Directory.GetFiles(xmlPath, "*.xml", SearchOption.TopDirectoryOnly).Select(f => new {FilePath = f, Creation = File.GetCreationTime(f)}).OrderByDescending(f => f.Creation).FirstOrDefault();
+
+            if (lastResult != null)
+            {
+                XDocument oldResults;
+                using (var file = new FileStream(lastResult.FilePath, FileMode.Open, FileAccess.Read))
+                {
+                    oldResults = XDocument.Load(file);
+                }
+                foreach (var r in results)
+                {
+                    var match = CompressionResult.FromXml(oldResults.Descendants("Result").FirstOrDefault(x => x.Attribute("direction").Value == r.Direction.ToString() && x.Element("FileName").Value == r.FileName));
+
+                    if (match != null)
+                    {
+                        Console.Write(r.ToString());
+                        var currentColor = Console.ForegroundColor;
+                        double speedup = CalculateSpeedup(r.Throughput, match.Throughput);
+                        if (speedup > 1)
+                            Console.ForegroundColor = r.Throughput < match.Throughput ? ConsoleColor.Red : ConsoleColor.Green;
+                        Console.WriteLine(" [{0:F2}%]", speedup);
+                        Console.ForegroundColor = currentColor;
+                    }
+                }
+            }
+        }
+
+        private static double CalculateSpeedup(double throughput, double d)
+        {
+            return Math.Abs(100 - (100 * throughput / d));
+        }
+
+        static readonly Dictionary<string,string> FileMap = new Dictionary<string,string> {
+            { "html", "html" },
+            { "urls.10K", "urls" },
+            { "house.jpg", "jpg"  },
+            { "mapreduce-osdi-1.pdf","pdf" },
+            { "html_x_4", "html4" },
+            { "cp.html", "cp" },
+            { "fields.c", "c" },
+            { "grammar.lsp", "lsp" },
+            { "kennedy.xls", "xls" },
+            { "alice29.txt", "txt1" },
+            { "asyoulik.txt", "txt2" },
+            { "lcet10.txt", "txt3" },
+            { "plrabn12.txt", "txt4" },
+            { "ptt5", "bin"},
+            { "sum", "sum" },
+            { "xargs.1", "man" },
+            { "geo.protodata","pb"  },
+            { "kppkn.gtb","gaviota"  },
+        };
     }
+
+    enum CompressionDirection
+    {
+        Compress,
+        Decompress
+    }
+
 }
-#endif

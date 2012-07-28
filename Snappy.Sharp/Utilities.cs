@@ -1,4 +1,8 @@
-﻿namespace Snappy.Sharp
+﻿using System;
+using System.Diagnostics;
+using System.Security;
+
+namespace Snappy.Sharp
 {
     internal class Utilities
     {
@@ -11,24 +15,39 @@
         /// <param name="destIndex">Index to start writing.</param>
         /// <remarks>The name comes from the original Snappy C++ source. I don't think there is a good way to look at 
         /// things in an aligned manner in the .NET Framework.</remarks>
+        //[SecuritySafeCritical]
         public unsafe static void UnalignedCopy64(byte[] source, int sourceIndex, byte[] dest, int destIndex)
         {
+            Debug.Assert(sourceIndex > -1);
+            Debug.Assert(destIndex > -1);
+            // TODO: is <= an off-by-one error? if it is, we are corrupting memory somewhere...
+            Debug.Assert(sourceIndex + 8 < source.Length);
+            Debug.Assert(destIndex + 8 < dest.Length);
+
             fixed (byte* src = &source[sourceIndex], dst = &dest[destIndex])
             {
                 *((long*)dst) = *((long*)src);
             }
         }
 
-        public unsafe static uint GetUInt(byte[] source, int index)
+        //[SecuritySafeCritical]
+        public unsafe static uint GetFourBytes(byte[] source, int index)
         {
+            Debug.Assert(index > -1);
+            Debug.Assert(index + 4 <= source.Length);
+
             fixed (byte* src = &source[index])
             {
                 return *((uint*)src);
             }
         }
 
-        public unsafe static ulong GetULong(byte[] source, int index)
+        //[SecuritySafeCritical]
+        public unsafe static ulong GetEightBytes(byte[] source, int index)
         {
+            Debug.Assert(index > -1);
+            Debug.Assert(index + 8 <= source.Length);
+
             fixed (byte* src = &source[index])
             {
                 return *((ulong*)src);

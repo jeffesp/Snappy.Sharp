@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -22,6 +23,11 @@ namespace Snappy.Sharp.Test
 
             int result = target.Compress(data, 0, data.Length, compressed);
 
+            Assert.Equal(52, result);
+
+            var decompressor = new SnappyDecompressor();
+            var bytes = decompressor.Decompress(compressed, 0, result);
+            Assert.Equal(data, bytes);
         }
 
         [Fact]
@@ -133,6 +139,23 @@ namespace Snappy.Sharp.Test
             Assert.Equal(data, result.Skip(size - dataSize).Take(dataSize));
         }
 
+        [Theory]
+        [PropertyData("DataFiles")]
+        public void compression_same_as_cpp_output(string fileName)
+        {
+            string compressedFileName = Path.Combine(@"..\..\..\testdata_compressed", Path.GetFileName(fileName+ ".comp") );
+            byte[] uncompressed = File.ReadAllBytes(fileName);
+            var target = new SnappyCompressor();
+            var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
+            int size = target.Compress(uncompressed, 0, uncompressed.Length, result);
+
+            byte[] compressed = File.ReadAllBytes(compressedFileName);
+
+            Assert.Equal(Path.GetFileName(fileName + ".comp"), Path.GetFileName(compressedFileName));
+            Assert.Equal(compressed.Length, size);
+            Assert.Equal(compressed, result.Take(size).ToArray());
+        }
+
         private static object[] EmitLiteralTag(int dataSize, int resultSizeExtenstion)
         {
             var target = new SnappyCompressor();
@@ -151,6 +174,16 @@ namespace Snappy.Sharp.Test
 
             return result;
         }
+
+        public static IEnumerable<object[]> DataFiles
+        {
+            get
+            {
+                var sourceFiles = Directory.GetFiles(@"..\..\..\testdata");
+                return sourceFiles.Select(s => new object[] {s});
+            } 
+        }
+
 
         public static IEnumerable<object[]> TagValues
         {

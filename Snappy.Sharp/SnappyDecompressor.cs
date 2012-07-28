@@ -56,7 +56,7 @@ namespace Snappy.Sharp
                 ushort entry = opLookupTable[opCode];
                 byte trailerBytes = (byte) (entry >> 11);
 
-                uint trailer = (Utilities.GetUInt(input, ipIndex) & wordmask[trailerBytes]);
+                uint trailer = (BitConverter.ToUInt32(input, ipIndex) & wordmask[trailerBytes]);
 
                 // advance the ipIndex past the op codes
                 ipIndex += entry >> 11;
@@ -262,8 +262,8 @@ namespace Snappy.Sharp
         {
             Debug.Assert(source != null);
             Debug.Assert(output != null);
-            Debug.Assert(srcIndex + length < source.Length);
-            Debug.Assert(opIndex + length < output.Length);
+//            Debug.Assert(srcIndex + length < source.Length - 1);
+//            Debug.Assert(opIndex + length < output.Length - 1);
 
             do
             {
