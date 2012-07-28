@@ -128,19 +128,22 @@ namespace Snappy.Performance
             [Option("p", "pref", DefaultValue = false, HelpText = "Run performance.")]
             public bool Performance { get; set; }
 
+            [Option("i", "iter", DefaultValue = 100, HelpText = "Number of iterations to run.")]
+            public int Iterations { get; set; }
+
             [Option("c", "compare", DefaultValue = false, HelpText = "Compare to previous results.")]
             public bool Compare { get; set; }
 
-            [Option("v", "verify", DefaultValue = true, HelpText = "Run readfile => compress => decompress => compare results")]
+            [Option("v", "verify", DefaultValue = false, HelpText = "Run readfile => compress => decompress => compare results")]
             public bool Verify { get; set; }
 
-            [Option("x", "outputxml", DefaultValue = true, HelpText = "Save results to xml file.")]
+            [Option("x", "outputxml", DefaultValue = false, HelpText = "Save results to xml file.")]
             public bool WriteXml { get; set; }
 
-            [Option("o", "xmldirectory", HelpText = "Directory to load/store xml results.", DefaultValue = @"C:\temp\snappyoutput")]
+            [Option("o", "xmldirectory", HelpText = "Directory to load/store xml results.", DefaultValue = @"..\..\..\..\perfdata")]
             public string XmlDirectory { get; set; }
 
-            [Option("d", "datadirectory", HelpText = "Directory to load test files.", DefaultValue = @"C:\temp\snappytestdata")]
+            [Option("d", "datadirectory", HelpText = "Directory to load test files.", DefaultValue = @"..\..\..\..\testdata")]
             public string TestDataDirectory { get; set; }
 
             [HelpOption]
@@ -161,10 +164,10 @@ namespace Snappy.Performance
         static string xmlPath = @"C:\temp\snappyoutput";
         static void Main(string[] args)
         {
-            const int iters = 1000;
             var options = new Options();
             if (CommandLineParser.Default.ParseArguments(args, options))
             {
+                int iters = options.Iterations;
                 if (Directory.Exists(options.XmlDirectory))
                     xmlPath = options.XmlDirectory;
                 else
@@ -224,9 +227,11 @@ namespace Snappy.Performance
             var decompressed = decompressor.Decompress(result, 0, size);
 
             byte[] source = File.ReadAllBytes(fileName);
-            Trace.Assert(source.Length == decompressed.Length);
+            if (source.Length != decompressed.Length)
+                throw new Exception(String.Format("Decompressed length {0} does not match original {1}", decompressed.Length, source.Length));
             for (int i = 0; i < uncompressed.Length; i++)
-                Trace.Assert(source[i] == decompressed[i]);
+                if (source[i] != decompressed[i])
+                    throw new Exception(String.Format("Decompressed data did not match original at index {0}", i));
         }
 
         private static void WriteResultsAsXml(IEnumerable<CompressionResult> results)

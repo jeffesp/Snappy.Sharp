@@ -231,12 +231,13 @@ namespace Snappy.Sharp
         {
             Debug.Assert(s2Limit >= s2Index);
             int matched = 0;
+            /*
             while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                 ++matched;
             }
             return matched;
+            */
            //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
-            /*
             uint a1 = Utilities.GetFourBytes(s1, s2Index + matched);
             uint a2 = Utilities.GetFourBytes(s1, s1Index + matched);
             while ((s2Index + matched + 4 < s2Limit - 4) &&  a1 == a2) {
@@ -256,7 +257,6 @@ namespace Snappy.Sharp
                 }
             }
             return matched;
-            */
         }
 
         internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length, bool allowFastPath)

@@ -20,9 +20,8 @@ namespace Snappy.Sharp
         {
             Debug.Assert(sourceIndex > -1);
             Debug.Assert(destIndex > -1);
-            // TODO: is <= an off-by-one error? if it is, we are corrupting memory somewhere...
-            Debug.Assert(sourceIndex + 8 < source.Length);
-            Debug.Assert(destIndex + 8 < dest.Length);
+            Debug.Assert(sourceIndex + 7 < source.Length);
+            Debug.Assert(destIndex + 7 < dest.Length);
 
             fixed (byte* src = &source[sourceIndex], dst = &dest[destIndex])
             {
@@ -30,11 +29,14 @@ namespace Snappy.Sharp
             }
         }
 
+        ///<summary>>
+        /// Reads 4 bytes from memory into a uint. Does not take host enianness into account.
+        /// </summary>
         //[SecuritySafeCritical]
         public unsafe static uint GetFourBytes(byte[] source, int index)
         {
             Debug.Assert(index > -1);
-            Debug.Assert(index + 4 <= source.Length);
+            Debug.Assert(index + 3 < source.Length);
 
             fixed (byte* src = &source[index])
             {
@@ -42,11 +44,14 @@ namespace Snappy.Sharp
             }
         }
 
+        ///<summary>>
+        /// Reads 8 bytes from memory into a uint. Does not take host enianness into account.
+        /// </summary>
         //[SecuritySafeCritical]
         public unsafe static ulong GetEightBytes(byte[] source, int index)
         {
             Debug.Assert(index > -1);
-            Debug.Assert(index + 8 <= source.Length);
+            Debug.Assert(index + 7 < source.Length);
 
             fixed (byte* src = &source[index])
             {

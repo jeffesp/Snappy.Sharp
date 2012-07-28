@@ -8,7 +8,7 @@ namespace Snappy.Sharp
 {
     public class SnappyDecompressor
     {
-        private const int MAX_INCREMENT_COPY_OVERFLOW = 20;
+        private const int MAX_INCREMENT_COPY_OVERFLOW = 10;
         private const int bitMask = 0x80;
 
         public int[] ReadUncompressedLength(byte[] data, int offset)
@@ -122,9 +122,8 @@ namespace Snappy.Sharp
             }
         }
 
-        
-
         /**
+         * NOTE: from Java version, need to determine if true in .Net as well.
          * This is a second copy of the inner loop of decompressTags used when near the end
          * of the input. The key difference is the reading of the trailer bytes.  The fast
          * code does a blind read of the next 4 bytes as an int, and this code assembles
@@ -184,13 +183,12 @@ namespace Snappy.Sharp
             Debug.Assert(opIndex >= 0);
 
             int spaceLeft = output.Length - opIndex;
-            int readableBytes = input.Length - ipIndex;
+            int readableBytes = input.Length - ipIndex; 
 
             if (readableBytes < length || spaceLeft < length)
             {
                 throw new InvalidOperationException("Corrupt literal length");
             }
-
             if (length <= 16 && spaceLeft >= 16 && readableBytes >= 16)
             {
                 Utilities.UnalignedCopy64(input, ipIndex, output, opIndex);
