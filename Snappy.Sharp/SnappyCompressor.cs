@@ -13,6 +13,31 @@ namespace Snappy.Sharp
         private const int MAX_HASH_TABLE_BITS = 14;
         private const int MAX_HASH_TABLE_SIZE = 1 << MAX_HASH_TABLE_BITS;
 
+        private Func<byte[], int, int, int, int> FindMatchLength;
+
+        public SnappyCompressor() : this(Utilities.NativeIntPtrSize())
+        {
+        }
+
+        internal SnappyCompressor(int intPtrBytes)
+        {
+            if (intPtrBytes == 4)
+            {
+                Debug.WriteLine("Using 32-bit optimized FindMatchLength");
+                FindMatchLength = FindMatchLength32; 
+            }
+            else if (intPtrBytes == 8)
+            {
+                Debug.WriteLine("Using 64-bit optimized FindMatchLength");
+                FindMatchLength = FindMatchLength64;
+            }
+            else
+            {
+                Debug.WriteLine("Using unoptimized FindMatchLength");
+                FindMatchLength = FindMatchLengthBasic;
+            }
+        }
+
         public int MaxCompressedLength(int sourceLength)
         {
             // So says the code from Google.
@@ -227,37 +252,96 @@ namespace Snappy.Sharp
         // Does not read s2Limit or beyond.
         // Does not read *(s1 + (s2_limit - s2)) or beyond.
         // Requires that s2Limit >= s2.
-        private int FindMatchLength(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        private int FindMatchLengthBasic(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
             int matched = 0;
-            /*
             while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
                 ++matched;
             }
             return matched;
-            */
-           //TODO: efficient method of loading more than one byte at a time. make sure to do check if 64bit process and load longs, ints otherwise.
-            uint a1 = Utilities.GetFourBytes(s1, s2Index + matched);
-            uint a2 = Utilities.GetFourBytes(s1, s1Index + matched);
-            while ((s2Index + matched + 4 < s2Limit - 4) &&  a1 == a2) {
-                matched += 4;
-                a1 = Utilities.GetFourBytes(s1, s2Index + matched);
-                a2 = Utilities.GetFourBytes(s1, s1Index + matched);
-            }
+        }
 
-            if (BitConverter.IsLittleEndian && s2Index + matched <= s2Limit - 4 && s1Index + matched < s1.Length) {
-                uint x = (a1 ^ a2);
-                uint matchingBits = Utilities.NumberOfTrailingZeros(x);
-                matched += (int)matchingBits >> 3;
+        // 32-bit optimized version of above
+        private int FindMatchLength32(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        {
+            Debug.Assert(s2Limit >= s2Index);
+
+            int matched = 0;
+            while (s2Index <= s2Limit - 4)
+            {
+                uint a = Utilities.GetFourBytes(s1, s2Index);
+                uint b = Utilities.GetFourBytes(s1, s1Index + matched);
+
+                if (a == b)
+                {
+                    s2Index += 4;
+                    matched += 4;
+                }
+                else
+                {
+                    uint c = a ^ b;
+                    int matchingBits = (int)Utilities.NumberOfTrailingZeros(c);
+                    matched += matchingBits >> 3;
+                    return matched;
+                }
             }
-            else {
-                while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
+            while (s2Index < s2Limit)
+            {
+                if (s1[s1Index] == s1[s2Index])
+                {
+                    ++s2Index;
                     ++matched;
+                }
+                else
+                {
+                    return matched;
                 }
             }
             return matched;
         }
+
+
+        // 64-bit optimized version of above
+        private int FindMatchLength64(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        {
+            Debug.Assert(s2Limit >= s2Index);
+
+            int matched = 0;
+            while (s2Index <= s2Limit - 8)
+            {
+                ulong a = Utilities.GetEightBytes(s1, s2Index);
+                ulong b = Utilities.GetEightBytes(s1, s1Index + matched);
+
+                if (a == b)
+                {
+                    s2Index += 8;
+                    matched += 8;
+                }
+                else
+                {
+                    ulong c = a ^ b;
+                    // first get low order 32 bits, if all 0 then get high order as well.
+                    int matchingBits = (int)Utilities.NumberOfTrailingZeros(c);
+                    matched += matchingBits >> 3;
+                    return matched;
+                }
+            }
+            while (s2Index < s2Limit)
+            {
+                if (s1[s1Index] == s1[s2Index])
+                {
+                    ++s2Index;
+                    ++matched;
+                }
+                else
+                {
+                    return matched;
+                }
+            }
+            return matched;
+        }
+
 
         internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length, bool allowFastPath)
         {

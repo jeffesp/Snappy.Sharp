@@ -6,6 +6,12 @@ namespace Snappy.Sharp
 {
     internal class Utilities
     {
+
+        public static unsafe int NativeIntPtrSize()
+        {
+            return sizeof (IntPtr);
+        }
+
         /// <summary>
         /// Copies 64 bits (8 bytes) from source array starting at sourceIndex into dest array starting at destIndex.
         /// </summary>
@@ -97,6 +103,16 @@ namespace Snappy.Sharp
             x += (x >> 8);
             x += (x >> 16);
             return (x & 0x0000003f);
+        }
+
+        public static uint NumberOfTrailingZeros(ulong c)
+        {
+            uint matchingBits = NumberOfTrailingZeros((uint) c);
+            if (matchingBits == 32)
+            {
+                matchingBits += NumberOfTrailingZeros((uint) (c >> 32));
+            }
+            return matchingBits;
         }
     }
 }

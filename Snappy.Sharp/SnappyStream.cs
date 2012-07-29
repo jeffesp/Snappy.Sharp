@@ -92,6 +92,13 @@ namespace Snappy.Sharp
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            if (compressionMode != CompressionMode.Decompress || decompressor == null)
+                throw new InvalidOperationException("Cannot read if not set to decompression mode.");
+
+            // TODO: could probably speed this up with a reusable buffer here.
+            byte[] decompressed = decompressor.Decompress(buffer, offset, count);
+            stream.Write(decompressed, 0, decompressed.Length);
+
             return stream.Read(buffer, offset, count);
         }
 
