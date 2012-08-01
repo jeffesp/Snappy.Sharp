@@ -17,10 +17,12 @@ namespace Snappy.Performance
     {
         private class CompressionResult
         {
+            private static readonly long nanosecPerTick = 1000000000 / Stopwatch.Frequency;
             public CompressionDirection Direction { get; set; }
             public string FileName { get; set; }
             public long FileBytes { get; set; }
             public TimeSpan ElapsedTime { get; set; }
+            public double StandardDeviation { get; set; }
             public int Iterations { get; set; }
             public long CompressedSize { get; set; }
 
@@ -31,17 +33,24 @@ namespace Snappy.Performance
 
             public double Throughput
             {
-                get { return ( (double)FileBytes * Iterations / (1 << 20)) / (ElapsedTime.TotalMilliseconds / 1e3 ); }
+                get
+                {
+                    double ticksPerIter = (double)ElapsedTime.Ticks / Iterations;
+                    double sec = (ticksPerIter * nanosecPerTick) / 1e9;
+                    var mb = ((double)FileBytes / (1024 * 1024));
+                    return mb/sec;
+                }
             }
 
             public override string ToString()
             {
-                return String.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}",
+                return String.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}\t{5:F2}",
                                      Path.GetFileName(FileName),
-                                     ((long)(ElapsedTime.TotalMilliseconds * 1000 * 1000)).ToString("D"),
+                                     ElapsedTime.Ticks * nanosecPerTick,
                                      Iterations,
                                      Throughput,
-                                     CompresionPercentage);
+                                     CompresionPercentage,
+                                     StandardDeviation);
             }
 
             public static string HeaderString = String.Format("{0,-20}\t{1,10}\t{2}\t{3}\t{4}", "File", "Time (ns)", "Iter", "MB/s", "Compression");
@@ -70,10 +79,23 @@ namespace Snappy.Performance
                        };
             }
         }
+        static double StdDev(IEnumerable<long> values)
+        {
+            double ret = 0;
+            if (values.Count() > 0)
+            {
+                double avg = values.Average();
+                double sum = values.Sum(val => Math.Pow(val - avg, 2));
+                ret = Math.Sqrt((sum) / (values.Count() - 1));
+            }
+            return ret;
+        }
+
         static CompressionResult RunCompression(string fileName, int iterations)
         {
             int size = 0;
 
+            long[] ticks = new long[iterations];
             byte[] uncompressed = File.ReadAllBytes(fileName);
 
             var target = new SnappyCompressor();
@@ -85,6 +107,8 @@ namespace Snappy.Performance
                 s.Start();
                 size = target.Compress(uncompressed, 0, uncompressed.Length, result);
                 s.Stop();
+                ticks[i] = s.ElapsedTicks;
+                s.Reset();
             }
 
             return new CompressionResult
@@ -93,12 +117,17 @@ namespace Snappy.Performance
                            FileName =  FileMap[Path.GetFileName(fileName)],
                            CompressedSize = size,
                            FileBytes = uncompressed.Length,
-                           ElapsedTime = s.Elapsed,
+                           ElapsedTime = new TimeSpan(ticks.Sum()),
+                           StandardDeviation =  StdDev(ticks),
                            Iterations = iterations
                        };
         }
+
+
+
         private static CompressionResult RunDecompression(string fileName, int iterations)
         {
+            long[] ticks = new long[iterations];
             byte[] uncompressed = File.ReadAllBytes(fileName);
             var compressed = Sharp.Snappy.Compress(uncompressed);
             int size = compressed.Length;
@@ -110,6 +139,8 @@ namespace Snappy.Performance
                 s.Start();
                 var result = target.Decompress(compressed, 0, compressed.Length);
                 s.Stop();
+                ticks[i] = s.ElapsedTicks;
+                s.Reset();
             }
 
             return new CompressionResult
@@ -118,7 +149,8 @@ namespace Snappy.Performance
                            FileName =  FileMap[Path.GetFileName(fileName)],
                            CompressedSize = size,
                            FileBytes = uncompressed.Length,
-                           ElapsedTime = s.Elapsed,
+                           ElapsedTime = new TimeSpan(ticks.Sum()),
+                           StandardDeviation =  StdDev(ticks),
                            Iterations = iterations
                        };
         }
