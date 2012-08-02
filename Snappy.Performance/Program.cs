@@ -17,7 +17,7 @@ namespace Snappy.Performance
     {
         private class CompressionResult
         {
-            private static readonly long nanosecPerTick = 1000000000 / Stopwatch.Frequency;
+            private static readonly long NanosecPerTick = 1000000000 / Stopwatch.Frequency;
             public CompressionDirection Direction { get; set; }
             public string FileName { get; set; }
             public long FileBytes { get; set; }
@@ -36,7 +36,7 @@ namespace Snappy.Performance
                 get
                 {
                     double ticksPerIter = (double)ElapsedTime.Ticks / Iterations;
-                    double sec = (ticksPerIter * nanosecPerTick) / 1e9;
+                    double sec = (ticksPerIter * NanosecPerTick) / 1e9;
                     var mb = ((double)FileBytes / (1024 * 1024));
                     return mb/sec;
                 }
@@ -46,7 +46,7 @@ namespace Snappy.Performance
             {
                 return String.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}\t{5:F2}",
                                      Path.GetFileName(FileName),
-                                     ElapsedTime.Ticks * nanosecPerTick,
+                                     ElapsedTime.Ticks * NanosecPerTick,
                                      Iterations,
                                      Throughput,
                                      CompresionPercentage,
