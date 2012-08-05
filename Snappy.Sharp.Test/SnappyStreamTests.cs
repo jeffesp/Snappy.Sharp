@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 
 using Xunit;
 
@@ -71,10 +72,32 @@ namespace Snappy.Sharp.Test
         public void underlying_stream_not_closed_when_contructor_says_no()
         {
             var ms = new MemoryStream();
-            using (var target = new SnappyStream(ms, CompressionMode.Compress, true))
+            using (var target = new SnappyStream(ms, CompressionMode.Compress, true, false))
             {
             }
             Assert.True(ms.CanWrite && ms.CanRead);
+        }
+
+        [Fact]
+        public void identifier_and_header_written_on_compression_construction()
+        {
+            var ms = new MemoryStream();
+            using (var target = new SnappyStream(ms, CompressionMode.Compress, true, false))
+            {
+            }
+            Assert.Equal(new byte[] {0xff, (byte)'s', (byte)'N', (byte)'a', (byte)'P', (byte)'p', (byte)'Y'}, ms.GetBuffer().Take((int) ms.Length));
+        }
+
+        [Fact]
+        public void data_written_to_stream()
+        {
+            var ms = new MemoryStream();
+            using (var target = new SnappyStream(ms, CompressionMode.Compress, true, false))
+            {
+                byte[] buffer = new byte[100];
+                target.Write(buffer, 0, buffer.Length); 
+            }
+            Assert.Equal(new byte[] { 255, 115, 78, 97, 80, 112, 89, 0, 0, 100, 0, 0, 254, 1, 0, 138, 1, 0, 0}, ms.GetBuffer().Take((int) ms.Length));
         }
     }
 }

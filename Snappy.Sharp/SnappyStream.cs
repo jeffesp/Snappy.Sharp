@@ -10,6 +10,12 @@ namespace Snappy.Sharp
         private Stream stream;
         private readonly CompressionMode compressionMode;
         private readonly bool leaveStreamOpen;
+        private readonly bool writeChecksums;
+        private static byte[] streamHeader = new byte[] { (byte)'s', (byte)'N', (byte)'a', (byte)'P', (byte)'p', (byte)'Y'};
+        private const byte streamIdentifier = 0xff;
+        private const byte compressedType = 0x00;
+        private const byte uncompressedType = 0x01;
+
 
         private SnappyCompressor compressor;
         private SnappyDecompressor decompressor;
@@ -19,7 +25,7 @@ namespace Snappy.Sharp
         /// </summary>
         /// <param name="s">The stream.</param>
         /// <param name="mode">The compression mode.</param>
-        public SnappyStream(Stream s, CompressionMode mode) : this(s, mode, false)
+        public SnappyStream(Stream s, CompressionMode mode) : this(s, mode, false, false)
         {
         }
 
@@ -29,11 +35,12 @@ namespace Snappy.Sharp
         /// <param name="s">The stream.</param>
         /// <param name="mode">The compression mode.</param>
         /// <param name="leaveOpen">If set to <c>true</c> leaves the stream open when complete.</param>
-        public SnappyStream(Stream s, CompressionMode mode, bool leaveOpen)
+        public SnappyStream(Stream s, CompressionMode mode, bool leaveOpen, bool checksum)
         {
             stream = s;
             compressionMode = mode;
             leaveStreamOpen = leaveOpen;
+            writeChecksums = checksum;
 
             if (compressionMode == CompressionMode.Decompress)
             {
@@ -51,7 +58,8 @@ namespace Snappy.Sharp
 
                 compressor = new SnappyCompressor();
 
-                // TODO: write header
+                stream.WriteByte(streamIdentifier);
+                stream.Write(streamHeader, 0, streamHeader.Length);
             }
         }
 
@@ -111,9 +119,19 @@ namespace Snappy.Sharp
             throw new NotImplementedException();
         }
 
+        byte[] compressed = new byte[1<<16];
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            if (compressionMode != CompressionMode.Compress || compressor == null)
+                throw new InvalidOperationException("Cannot write when set to compression mode.");
+            if (count > 32768)
+                throw new InvalidOperationException("Cannot write more than 32768 bytes.");
+
+            stream.WriteByte(compressedType);
+            compressor.WriteUncomressedLength(compressed, 1, count);
+            int compressedLength = compressor.CompressInternal(buffer, offset, count, compressed, 2);
+
+            stream.Write(compressed, 0, compressedLength + 3);
         }
 
         protected override void Dispose(bool disposing)

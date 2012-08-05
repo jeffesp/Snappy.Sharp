@@ -52,6 +52,13 @@ namespace Snappy.Sharp
         public int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
         {
             int compressedIndex = WriteUncomressedLength(compressed, compressedOffset, uncompressedLength);
+            return CompressInternal(uncompressed, uncompressedOffset, uncompressedLength, compressed, compressedIndex);
+        }
+
+        internal int CompressInternal(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
+        {
+            // first time through set to offset.
+            int compressedIndex = compressedOffset;
             short[] hashTable = GetHashTable(uncompressedLength);
 
             for (int read = 0; read < uncompressedLength; read += BLOCK_SIZE)
@@ -68,6 +75,7 @@ namespace Snappy.Sharp
                     hashTable);
             }
             return compressedIndex - compressedOffset;
+
         }
 
         internal int CompressFragment(byte[] input, int inputOffset, int inputSize, byte[] output, int outputIndex, short[] hashTable)
@@ -418,8 +426,7 @@ namespace Snappy.Sharp
             // Varints consist of a series of bytes, where the lower 7 bits are data and the upper bit is set iff there are more bytes to read.
             // In other words, an uncompressed length of 64 would be stored as 0x40, and an uncompressed length of 2097150 (0x1FFFFE) would
             // be stored as 0xFE 0XFF 0X7F
-
-            while (uncompressedLength > bitMask) // TODO: java version 'unrolled'. Look at perf characteristics
+            while (uncompressedLength > bitMask) 
             {
                 compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
                 uncompressedLength = uncompressedLength >> 7;
