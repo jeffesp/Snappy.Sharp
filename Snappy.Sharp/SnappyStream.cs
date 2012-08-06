@@ -1,24 +1,32 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 
 namespace Snappy.Sharp
 {
     // Modeled after System.IO.Compression.DeflateStream in the framework
     public class SnappyStream : Stream
     {
+        private const int BLOCK_LOG = 15;
+        private const int BLOCK_SIZE = 1 << BLOCK_LOG;
+
         private Stream stream;
         private readonly CompressionMode compressionMode;
         private readonly bool leaveStreamOpen;
         private readonly bool writeChecksums;
-        private static byte[] streamHeader = new byte[] { (byte)'s', (byte)'N', (byte)'a', (byte)'P', (byte)'p', (byte)'Y'};
-        private const byte streamIdentifier = 0xff;
-        private const byte compressedType = 0x00;
-        private const byte uncompressedType = 0x01;
+        private static readonly byte[] StreamHeader = new byte[] { (byte)'s', (byte)'N', (byte)'a', (byte)'P', (byte)'p', (byte)'Y'};
+        private const byte StreamIdentifier = 0xff;
+        private const byte CompressedType = 0x00;
+        private const byte UncompressedType = 0x01;
 
+        // allocate a 64kB buffer for the (de)compressor to use
+        private readonly byte[] internalBuffer = new byte[1<<(BLOCK_LOG + 1)];
+        private int internalBufferIndex = 0;
+        private int internalBufferLength = 0;
 
-        private SnappyCompressor compressor;
-        private SnappyDecompressor decompressor;
+        private readonly SnappyCompressor compressor;
+        private readonly SnappyDecompressor decompressor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SnappyStream"/> class.
@@ -35,6 +43,7 @@ namespace Snappy.Sharp
         /// <param name="s">The stream.</param>
         /// <param name="mode">The compression mode.</param>
         /// <param name="leaveOpen">If set to <c>true</c> leaves the stream open when complete.</param>
+        /// <param name="checksum"><c>true</c> if checksums should be written to the stream </param>
         public SnappyStream(Stream s, CompressionMode mode, bool leaveOpen, bool checksum)
         {
             stream = s;
@@ -49,7 +58,8 @@ namespace Snappy.Sharp
 
                 decompressor =  new SnappyDecompressor();
 
-                // TODO: check for header
+                CheckStreamIdentifier();
+                CheckStreamHeader();
             }
             if (compressionMode == CompressionMode.Compress)
             {
@@ -58,8 +68,8 @@ namespace Snappy.Sharp
 
                 compressor = new SnappyCompressor();
 
-                stream.WriteByte(streamIdentifier);
-                stream.Write(streamHeader, 0, streamHeader.Length);
+                stream.WriteByte(StreamIdentifier);
+                stream.Write(StreamHeader, 0, StreamHeader.Length);
             }
         }
 
@@ -103,11 +113,75 @@ namespace Snappy.Sharp
             if (compressionMode != CompressionMode.Decompress || decompressor == null)
                 throw new InvalidOperationException("Cannot read if not set to decompression mode.");
 
-            // TODO: could probably speed this up with a reusable buffer here.
-            byte[] decompressed = decompressor.Decompress(buffer, offset, count);
-            stream.Write(decompressed, 0, decompressed.Length);
+            int readCount = 0;
+            int firstByte = stream.ReadByte();
+            if (firstByte == StreamIdentifier)
+            {
+                CheckStreamHeader();
+            }
+            else if (firstByte == UncompressedType)
+            {
+                var length = GetChunkUncompressedLength();
+                readCount = ProcessRemainingInternalBuffer(buffer, offset, count);
+                if (readCount != count)
+                {
+                    stream.Read(internalBuffer, 0, length);
+                    Array.Copy(internalBuffer, 0, buffer, offset, count - readCount);
+                    internalBufferIndex = count - readCount;
+                    internalBufferLength = length;
+                }
+            }
+            else if (firstByte == CompressedType)
+            {
+                var length = GetChunkUncompressedLength();
+                count = ProcessRemainingInternalBuffer(buffer, offset, count);
 
-            return stream.Read(buffer, offset, count);
+                byte[] tempBuffer = new byte[1 << (BLOCK_LOG + 1)];
+                stream.Read(tempBuffer, 0, tempBuffer.Length);
+
+                decompressor.Decompress(tempBuffer, 0, tempBuffer.Length, internalBuffer, 0, length);
+
+                Array.Copy(internalBuffer, 0, buffer, offset, count);
+                internalBufferIndex = count;
+                internalBufferLength = length;
+            }
+            else if (firstByte > 0x2 && firstByte < 0x7f)
+            {
+               throw new InvalidOperationException("Found unskippable chunk type that cannot be undertood."); 
+            }
+            else
+            {
+                // getting the length and skipping the data.
+                var length = GetChunkUncompressedLength();
+                stream.Seek(length, SeekOrigin.Current);
+                readCount += length;
+            }
+            return readCount;
+        }
+
+        private int ProcessRemainingInternalBuffer(byte[] buffer, int offset, int count)
+        {
+            if (internalBufferLength - internalBufferIndex > count)
+            {
+                Array.Copy(internalBuffer, internalBufferIndex, buffer, offset, count);
+                internalBufferIndex += count;
+            }
+            else if (internalBufferLength > 0)
+            {
+                Array.Copy(internalBuffer, internalBufferIndex, buffer, offset, internalBufferLength - internalBufferIndex);
+                count -= (internalBufferLength - internalBufferIndex);
+            }
+            return count;
+        }
+
+        private int GetChunkUncompressedLength()
+        {
+            int len1 = stream.ReadByte();
+            int len2 = stream.ReadByte();
+            int length = (len1 << 8) | len2;
+            if (length > BLOCK_SIZE)
+                throw new InvalidOperationException("Chunk length is too big.");
+            return length;
         }
 
         public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
@@ -119,19 +193,15 @@ namespace Snappy.Sharp
             throw new NotImplementedException();
         }
 
-        byte[] compressed = new byte[1<<16];
         public override void Write(byte[] buffer, int offset, int count)
         {
             if (compressionMode != CompressionMode.Compress || compressor == null)
                 throw new InvalidOperationException("Cannot write when set to compression mode.");
-            if (count > 32768)
-                throw new InvalidOperationException("Cannot write more than 32768 bytes.");
 
-            stream.WriteByte(compressedType);
-            compressor.WriteUncomressedLength(compressed, 1, count);
-            int compressedLength = compressor.CompressInternal(buffer, offset, count, compressed, 2);
-
-            stream.Write(compressed, 0, compressedLength + 3);
+            stream.WriteByte(CompressedType);
+            compressor.WriteUncomressedLength(buffer, 1, count);
+            int compressedLength = compressor.CompressInternal(buffer, offset, count, internalBuffer, 2);
+            stream.Write(internalBuffer, 0, compressedLength + 3);
         }
 
         protected override void Dispose(bool disposing)
@@ -208,6 +278,26 @@ namespace Snappy.Sharp
             {
                 throw new NotSupportedException();
             }
+        }
+
+        private void CheckStreamHeader()
+        {
+            byte[] heading = new byte[StreamHeader.Length];
+            stream.Read(heading, 0, heading.Length);
+            for (int i = 1; i < heading.Length; i++)
+            {
+                if (heading[i] != StreamHeader[i - 1])
+                    throw new InvalidDataException("Stream does not start with required header");
+            }
+        }
+
+        private void CheckStreamIdentifier()
+        {
+            int firstByte = stream.ReadByte();
+            if (firstByte == -1)
+                throw new InvalidOperationException("Found EOF when trying to read header.");
+            if (firstByte != StreamIdentifier)
+                throw new InvalidOperationException("Invalid stream identifier found.");
         }
 
     }

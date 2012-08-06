@@ -38,14 +38,12 @@ namespace Snappy.Sharp
             var sizeHeader = ReadUncompressedLength(compressed, 0);
             var data = new byte[sizeHeader[0]];
 
-            Decompress(compressed, compressedOffset + sizeHeader[1], compressedSize - sizeHeader[1], data, 0);
+            Decompress(compressed, compressedOffset + sizeHeader[1], compressedSize - sizeHeader[1], data, 0, data.Length);
 
             return data;
         }
-        public void Decompress(byte[] input, int inputOffset, int inputSize, byte[] output, int outputOffset)
+        public int Decompress(byte[] input, int inputOffset, int inputSize, byte[] output, int outputOffset, int outputLimit)
         {
-            int outputLimit = output.Length;
-
             int ipLimit = inputOffset + inputSize;
             int opIndex = outputOffset;
             int ipIndex = inputOffset;
@@ -120,6 +118,8 @@ namespace Snappy.Sharp
                 ipIndex = result[0];
                 opIndex = result[1];
             }
+
+            return opIndex;
         }
 
         /**

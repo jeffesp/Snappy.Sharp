@@ -181,7 +181,6 @@ namespace Snappy.Performance
             [HelpOption]
             public string GetUsage()
             {
-                // this without using CommandLine.Text
                 var usage = new StringBuilder();
                 usage.AppendLine("Snappy.Performance.exe");
                 usage.AppendLine("\t-c or --compare to indicate comparision to previous results");
