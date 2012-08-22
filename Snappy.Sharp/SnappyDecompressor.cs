@@ -260,8 +260,9 @@ namespace Snappy.Sharp
         {
             Debug.Assert(source != null);
             Debug.Assert(output != null);
-//            Debug.Assert(srcIndex + length < source.Length - 1);
-//            Debug.Assert(opIndex + length < output.Length - 1);
+            // do <= because we do a postfix increment index but a prefix decrement of length
+            Debug.Assert(srcIndex + length <= source.Length);
+            Debug.Assert(opIndex + length <= output.Length);
 
             do
             {

@@ -13,7 +13,7 @@ namespace Snappy.Sharp
         private const int MAX_HASH_TABLE_BITS = 14;
         private const int MAX_HASH_TABLE_SIZE = 1 << MAX_HASH_TABLE_BITS;
 
-        private Func<byte[], int, int, int, int> FindMatchLength;
+        private readonly Func<byte[], int, int, int, int> FindMatchLength;
 
         public SnappyCompressor() : this(Utilities.NativeIntPtrSize())
         {
@@ -82,12 +82,8 @@ namespace Snappy.Sharp
         {
             // "ip" is the input pointer, and "op" is the output pointer.
             int inputIndex = inputOffset;
-            //CHECK_LE(input_size, kBlockSize);
-            //CHECK_EQ(table_size & (table_size - 1), 0) << ": table must be power of two";
-            if (inputSize > BLOCK_SIZE)
-                throw new ArgumentOutOfRangeException("inputSize", "input size must be less than block size.");
-            if ((hashTable.Length & (hashTable.Length - 1)) != 0)
-                throw new ArgumentOutOfRangeException("hashTable", "hash table length must be a power of two.");
+            Debug.Assert(inputSize <= BLOCK_SIZE);
+            Debug.Assert((hashTable.Length & (hashTable.Length - 1)) == 0, "hashTable size must be a power of 2");
             int shift = (int) (32 - Utilities.Log2Floor((uint)hashTable.Length));
             //DCHECK_EQ(static_cast<int>(kuint32max >> shift), table_size - 1);
             int inputEnd = inputOffset + inputSize;

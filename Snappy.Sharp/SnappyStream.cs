@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 
 namespace Snappy.Sharp
 {
@@ -115,6 +114,7 @@ namespace Snappy.Sharp
 
             int readCount = 0;
             int firstByte = stream.ReadByte();
+            // first byte can indicate stream header, we just read it and move on.
             if (firstByte == StreamIdentifier)
             {
                 CheckStreamHeader();
@@ -136,6 +136,7 @@ namespace Snappy.Sharp
                 var length = GetChunkUncompressedLength();
                 count = ProcessRemainingInternalBuffer(buffer, offset, count);
 
+                // we at most have 64kb in the buffer to read
                 byte[] tempBuffer = new byte[1 << (BLOCK_LOG + 1)];
                 stream.Read(tempBuffer, 0, tempBuffer.Length);
 
@@ -147,7 +148,7 @@ namespace Snappy.Sharp
             }
             else if (firstByte > 0x2 && firstByte < 0x7f)
             {
-               throw new InvalidOperationException("Found unskippable chunk type that cannot be undertood."); 
+                throw new InvalidOperationException("Found unskippable chunk type that cannot be undertood.");
             }
             else
             {
@@ -197,11 +198,13 @@ namespace Snappy.Sharp
         {
             if (compressionMode != CompressionMode.Compress || compressor == null)
                 throw new InvalidOperationException("Cannot write when set to compression mode.");
-
-            stream.WriteByte(CompressedType);
-            compressor.WriteUncomressedLength(buffer, 1, count);
-            int compressedLength = compressor.CompressInternal(buffer, offset, count, internalBuffer, 2);
-            stream.Write(internalBuffer, 0, compressedLength + 3);
+            for (int i = 0; i < count; i += BLOCK_SIZE)
+            {
+                stream.WriteByte(CompressedType);
+                compressor.WriteUncomressedLength(buffer, 1, count);
+                int compressedLength = compressor.CompressInternal(buffer, offset, count, internalBuffer, 2);
+                stream.Write(internalBuffer, 0, compressedLength + 3);
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -286,7 +289,7 @@ namespace Snappy.Sharp
             stream.Read(heading, 0, heading.Length);
             for (int i = 1; i < heading.Length; i++)
             {
-                if (heading[i] != StreamHeader[i - 1])
+                if (heading[i] != StreamHeader[i])
                     throw new InvalidDataException("Stream does not start with required header");
             }
         }

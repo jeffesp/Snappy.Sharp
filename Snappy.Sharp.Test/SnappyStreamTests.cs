@@ -23,7 +23,7 @@ namespace Snappy.Sharp.Test
         [Fact] 
         public void stream_can_read_when_decompressing()
         {
-            using (var ms = new MemoryStream())
+            using (var ms = new MemoryStream(new byte[] {255, 115, 78, 97, 80, 112, 89, 0, 0, 0, 8, 0, 100, 0, 254, 1, 0, 130, 1, 0, 0 }))
             {
                 var target = new SnappyStream(ms, CompressionMode.Decompress);
                 Assert.True(target.CanRead);
@@ -97,7 +97,84 @@ namespace Snappy.Sharp.Test
                 byte[] buffer = new byte[100];
                 target.Write(buffer, 0, buffer.Length); 
             }
-            Assert.Equal(new byte[] { 255, 115, 78, 97, 80, 112, 89, 0, 0, 100, 0, 0, 254, 1, 0, 138, 1, 0, 0}, ms.GetBuffer().Take((int) ms.Length));
+            Assert.Equal(new byte[] { 255, 115, 78, 97, 80, 112, 89, 0, 0, 0, 8, 0, 100, 0, 254, 1, 0, 130, 1, 0, 0 }, ms.GetBuffer().Take((int) ms.Length));
+        }
+
+        [Fact]
+        public void stream_with_valid_data_able_to_be_read()
+        {
+
+        }
+
+        [Fact]
+        public void stream_with_uncompressed_data_copied_out_to_buffer()
+        {
+            
+        }
+
+        [Fact]
+        public void stream_with_compressed_data_is_decompressed()
+        {
+            
+        }
+
+        [Fact]
+        public void stream_with_multiple_chunks_of_data_reads_multiple_when_requesting_more_data()
+        {
+
+        }
+
+        [Fact]
+        public void steam_reading_partial_chunk_will_return_more_from_same_chunk_on_next_read()
+        {
+            
+        }
+
+        [Fact]
+        public void stream_read_returns_number_of_bytes_read__read_from_one_chunk()
+        {
+
+        }
+
+        [Fact]
+        public void stream_read_returns_number_of_bytes_read__read_from_multiple_chunks()
+        {
+
+        }
+
+        [Fact]
+        public void stream_read_throws_exception_on_invalid_chunk_type()
+        {
+        }
+
+        [Fact]
+        public void stream_read_throws_exception_on_chunk_length_too_long()
+        {
+            
+        }
+
+        [Fact]
+        public void stream_write_throws_exception_on_chunk_length_too_long()
+        {
+            
+            var ms = new MemoryStream();
+            using (var target = new SnappyStream(ms, CompressionMode.Compress, true, false))
+            {
+                byte[] buffer = new byte[1 << 20];
+                Assert.Throws<InvalidOperationException>(() => target.Write(buffer, 0, 1 << 20)); 
+            }
+        }
+
+        [Fact]
+        public void stream_writing_multiple_chunks()
+        {
+
+        }
+
+        [Fact]
+        public void stream_reading_multiple_chunks()
+        {
+
         }
     }
 }
