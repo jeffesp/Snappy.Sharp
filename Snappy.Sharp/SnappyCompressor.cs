@@ -74,7 +74,7 @@ namespace Snappy.Sharp
                     compressedIndex,
                     hashTable);
             }
-            return compressedIndex - compressedOffset;
+            return compressedIndex - compressedOffset + 1;
 
         }
 
