@@ -52,7 +52,7 @@ namespace Snappy.Sharp
         public int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
         {
             int compressedIndex = WriteUncomressedLength(compressed, compressedOffset, uncompressedLength);
-            return CompressInternal(uncompressed, uncompressedOffset, uncompressedLength, compressed, compressedIndex);
+            return compressedIndex + CompressInternal(uncompressed, uncompressedOffset, uncompressedLength, compressed, compressedIndex);
         }
 
         internal int CompressInternal(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
@@ -74,7 +74,7 @@ namespace Snappy.Sharp
                     compressedIndex,
                     hashTable);
             }
-            return compressedIndex - compressedOffset + 1;
+            return compressedIndex - compressedOffset;
 
         }
 
