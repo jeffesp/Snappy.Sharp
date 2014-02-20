@@ -35,10 +35,10 @@ namespace Snappy.Sharp
 
         public byte[] Decompress(byte[] compressed, int compressedOffset, int compressedSize)
         {
-            var sizeHeader = ReadUncompressedLength(compressed, 0);
+            var sizeHeader = ReadUncompressedLength(compressed, compressedOffset);
             var data = new byte[sizeHeader[0]];
 
-            Decompress(compressed, compressedOffset + sizeHeader[1], compressedSize - sizeHeader[1], data, 0, data.Length);
+            Decompress(compressed, sizeHeader[1], compressedSize + compressedOffset - sizeHeader[1], data, 0, data.Length);
 
             return data;
         }
