@@ -86,7 +86,8 @@ namespace Snappy.Sharp
                     if (sourceOffset == 0 || literalLength + inputOffset > outputLimit)
                         throw new InvalidDataException();
 
-                    Buffer.BlockCopy(input, inputOffset + 1, output, outputOffset, literalLength + 1);
+                    literalLength = literalLength + 1;
+                    Buffer.BlockCopy(input, inputOffset + sourceOffset, output, outputOffset, literalLength);
                     inputOffset = inputOffset + literalLength + sourceOffset;
                     outputOffset = outputOffset + literalLength;
                 }
