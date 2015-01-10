@@ -1,15 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace Snappy.Sharp
 {
     public class SnappyDecompressor
     {
-        private const int MAX_INCREMENT_COPY_OVERFLOW = 10;
         private const int bitMask = 0x80;
 
         public int ReadUncompressedLength(byte[] data, ref int offset)
@@ -48,7 +43,7 @@ namespace Snappy.Sharp
         }
         public int Decompress(byte[] input, int inputOffset, int inputSize, byte[] output, int outputOffset, int outputLimit)
         {
-            while (true)
+            while (outputOffset < outputLimit)
             {
                 Snappy.TagType currentTagType = ClassifyTag(input[inputOffset]);
                 if (currentTagType == Snappy.TagType.Literal)
@@ -68,25 +63,26 @@ namespace Snappy.Sharp
                     }
                     else if (literalLength == 61)
                     {
-                        literalLength = (input[inputOffset + 1] << 8) | input[inputOffset + 2];
+                        literalLength = (input[inputOffset + 2] << 8) | input[inputOffset + 1];
                         sourceOffset = 3;
                     }
                     else if (literalLength == 62)
                     {
-                        literalLength = (input[inputOffset + 1] << 16) | (input[inputOffset + 2] << 8) |
-                                        input[inputOffset + 3];
+                        literalLength = (input[inputOffset + 3] << 16) | (input[inputOffset + 2] << 8) |
+                                        input[inputOffset + 1];
                         sourceOffset = 4;
                     }
                     else if (literalLength == 63)
                     {
-                        literalLength = (input[inputOffset + 1] << 24) | (input[inputOffset + 2] << 16) |
-                                        (input[inputOffset + 3] << 8) | input[inputOffset + 4];
+                        literalLength = (input[inputOffset + 4] << 24) | (input[inputOffset + 3] << 16) |
+                                        (input[inputOffset + 2] << 8) | input[inputOffset + 1];
                         sourceOffset = 5;
                     }
+
+                    literalLength = literalLength + 1;
                     if (sourceOffset == 0 || literalLength + inputOffset > outputLimit)
                         throw new InvalidDataException();
 
-                    literalLength = literalLength + 1;
                     Buffer.BlockCopy(input, inputOffset + sourceOffset, output, outputOffset, literalLength);
                     inputOffset = inputOffset + literalLength + sourceOffset;
                     outputOffset = outputOffset + literalLength;
@@ -130,11 +126,6 @@ namespace Snappy.Sharp
                     }
 
                     inputOffset += 5;
-                }
-
-                if (outputOffset >= outputLimit)
-                {
-                    break;
                 }
             }
             return outputOffset;

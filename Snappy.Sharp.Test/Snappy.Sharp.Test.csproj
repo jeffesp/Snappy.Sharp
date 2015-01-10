@@ -82,12 +82,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DecompressionReadCopies.cs" />
     <Compile Include="PerformanceTests.cs" />
     <Compile Include="PreambleDecodeTests.cs" />
     <Compile Include="PreambleEncodeTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SnappyCompressionTests.cs" />
-    <Compile Include="SnappyDecompressionTests.cs" />
+    <Compile Include="DecompressionReadLiterals.cs" />
     <Compile Include="SnappyStreamTests.cs" />
     <Compile Include="UtilitiesTests.cs" />
   </ItemGroup>
