@@ -23,9 +23,10 @@ namespace Snappy.Sharp.Test
 
 
             var target2 = new SnappyDecompressor();
-            var sizes = target2.ReadUncompressedLength(result, 0);
-            var bytes = new byte[sizes[0]];
-            target2.Decompress(result, 0 + sizes[1], size - sizes[1], bytes, 0, sizes[1]);
+            int offset = 0;
+            int outsize = target2.ReadUncompressedLength(result, ref offset);
+            var bytes = new byte[size];
+            target2.Decompress(result, 0 + offset, size - offset, bytes, 0, outsize);
 
             Assert.Equal(uncompressed, bytes);
         }

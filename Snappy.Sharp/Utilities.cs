@@ -143,6 +143,7 @@ namespace Snappy.Sharp
         }
 
 
+        #region CRC Constants
         static readonly uint[] T8_0 = new uint[]{
                 0x00000000, 0xF26B8303, 0xE13B70F7, 0x1350F3F4,
                 0xC79A971F, 0x35F1141C, 0x26A1E7E8, 0xD4CA64EB,
@@ -671,5 +672,6 @@ namespace Snappy.Sharp
                 0xE54C35A1, 0xAC704886, 0x7734CFEF, 0x3E08B2C8,
                 0xC451B7CC, 0x8D6DCAEB, 0x56294D82, 0x1F1530A5
         };
+        #endregion
     }
 }

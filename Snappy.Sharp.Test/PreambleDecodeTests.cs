@@ -12,8 +12,11 @@ namespace Snappy.Sharp.Test
             byte[] data = new byte[10];
             data[0] = 0x40;
 
-            var result = ReadLengthData(data);
-            Assert.Equal(64, result[0]);
+            int offset = 0;
+            var target = new SnappyDecompressor();
+            int result = target.ReadUncompressedLength(data, ref offset);
+            Assert.Equal(64, result);
+            Assert.Equal(1, offset);
         }
 
         [Fact]
@@ -24,8 +27,11 @@ namespace Snappy.Sharp.Test
             data[1] = 0xFF;
             data[2] = 0x7F; 
 
-            var result = ReadLengthData(data);
-            Assert.Equal(2097150, result[0]);
+            int offset = 0;
+            var target = new SnappyDecompressor();
+            int result = target.ReadUncompressedLength(data, ref offset);
+            Assert.Equal(2097150, result);
+            Assert.Equal(3, offset);
         }
 
         [Fact]
@@ -36,16 +42,31 @@ namespace Snappy.Sharp.Test
             data[1] = 0xFF;
             data[2] = 0xFF; 
             data[3] = 0xFF; 
-            data[4] = 0x7; 
+            data[4] = 0x7;
 
-            var result = ReadLengthData(data);
-            Assert.Equal(Int32.MaxValue, result[0]);
+            int offset = 0;
+            var target = new SnappyDecompressor();
+            int result = target.ReadUncompressedLength(data, ref offset);
+            Assert.Equal(Int32.MaxValue, result);
+            Assert.Equal(5, offset);
         }
 
-        private static int[] ReadLengthData(byte[] data)
+        [Fact]
+        public void decompression_read_uncompressed_length_throws_when_no_data()
         {
-            var target = new SnappyDecompressor();
-            return target.ReadUncompressedLength(data, 0);
+            SnappyDecompressor target = new SnappyDecompressor();
+            byte[] input = new byte[0];
+            int offset = 0;
+            Assert.Throws<ArgumentException>(() => target.ReadUncompressedLength(input, ref offset));
+        }
+
+        [Fact]
+        public void decompression_read_uncompressed_length_throws_when_offset_exceeds_data()
+        {
+            SnappyDecompressor target = new SnappyDecompressor();
+            byte[] input = new byte[10];
+            int offset = 10;
+            Assert.Throws<ArgumentException>(() => target.ReadUncompressedLength(input, ref offset));
         }
     }
 }

@@ -23,7 +23,7 @@ namespace Snappy.Sharp.Test
 
             int result = target.Compress(data, 0, data.Length, compressed);
 
-            Assert.Equal(50, result);
+            Assert.Equal(52, result);
 
             var decompressor = new SnappyDecompressor();
             var bytes = decompressor.Decompress(compressed, 0, result);
@@ -42,7 +42,7 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize);
-            Assert.Equal(15, result);
+            Assert.Equal(12, result);
 
             // TODO: instead of decompressing, we should traverse the buffer looking for tag bytes and interpreting them.
             var decompressor = new SnappyDecompressor();
@@ -104,10 +104,11 @@ namespace Snappy.Sharp.Test
             target.Compress(data, 0, data.Length, compressed);
 
             var decompressor = new SnappyDecompressor();
-            var result = decompressor.ReadUncompressedLength(compressed, 0);
+            int offset = 0;
+            int result = decompressor.ReadUncompressedLength(compressed, ref offset);
 
-            Assert.Equal(dataSize, result[0]);
-            Assert.Equal(storageBytes, result[1]);
+            Assert.Equal(dataSize, result);
+            Assert.Equal(storageBytes, offset);
         }
 
         [Theory]

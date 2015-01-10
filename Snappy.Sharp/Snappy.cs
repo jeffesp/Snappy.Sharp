@@ -6,6 +6,14 @@ namespace Snappy.Sharp
 {
     public static class Snappy
     {
+        public enum TagType
+        {
+            Literal,
+            Copy1ByteOffset,
+            Copy2ByteOffset,
+            Copy4ByteOffset
+        }
+
         internal const int LITERAL = 0;
         internal const int COPY_1_BYTE_OFFSET = 1; // 3 bit length + 3 bits of offset in opcode
         internal const int COPY_2_BYTE_OFFSET = 2;
@@ -33,7 +41,7 @@ namespace Snappy.Sharp
         public static int GetUncompressedLength(byte[] compressed, int offset = 0)
         {
             var decompressor = new SnappyDecompressor();
-            return decompressor.ReadUncompressedLength(compressed, offset)[0];
+            return decompressor.ReadUncompressedLength(compressed, ref offset);
         }
 
         public static byte[] Uncompress(byte[] compressed)
