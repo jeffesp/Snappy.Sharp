@@ -92,43 +92,39 @@ namespace Snappy.Sharp
                     int length = 4 + ((input[inputOffset] >> 2) & 0x7);
                     int offset = input[inputOffset] >> 5 + input[inputOffset + 1];
 
-                    for (int i = 0; i < length; i++)
-                    {
-                        output[outputOffset] = output[outputOffset - offset];
-                        outputOffset++;
-                    }
-
+                    outputOffset = CopyCopy(output, outputOffset, length, offset);
                     inputOffset += 2;
                 }
                 else if (currentTagType == Snappy.TagType.Copy2ByteOffset)
                 {
                     int length = 1 + input[inputOffset] >> 2;
-                    int offset = input[inputOffset+1] << 8 + input[inputOffset + 2];
+                    int offset = input[inputOffset+2] << 8 + input[inputOffset + 1];
 
-                    for (int i = 0; i < length; i++)
-                    {
-                        outputOffset++;
-                        output[outputOffset] = output[outputOffset - offset];
-                    }
-
+                    outputOffset = CopyCopy(output, outputOffset, length, offset);
                     inputOffset += 3;
                 }
                 else if (currentTagType == Snappy.TagType.Copy4ByteOffset)
                 {
                     int length = 1 + input[inputOffset] >> 2;
-                    int offset = (input[inputOffset + 1] << 24) | (input[inputOffset + 2] << 16) |
-                                 (input[inputOffset + 3] << 8) | input[inputOffset + 4];
+                    int offset = (input[inputOffset + 4] << 24) | (input[inputOffset + 3] << 16) |
+                                 (input[inputOffset + 2] << 8) | input[inputOffset + 1];
 
-                    for (int i = 0; i < length; i++)
-                    {
-                        outputOffset++;
-                        output[outputOffset] = output[outputOffset - offset];
-                    }
-
+                    outputOffset = CopyCopy(output, outputOffset, length, offset);
                     inputOffset += 5;
                 }
             }
             return outputOffset;
+        }
+
+        private static int CopyCopy(byte[] output, int outputOffset, int length, int offset)
+        {
+            int count = outputOffset + length;
+            while (outputOffset < count)
+            {
+                output[outputOffset] = output[outputOffset - offset];
+                outputOffset++;
+            }
+            return count;
         }
 
         private Snappy.TagType ClassifyTag(byte input)
