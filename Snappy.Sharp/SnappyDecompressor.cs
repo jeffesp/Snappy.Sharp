@@ -81,7 +81,7 @@ namespace Snappy.Sharp
 
                     literalLength = literalLength + 1;
                     if (sourceOffset == 0 || literalLength + inputOffset > outputLimit)
-                        throw new InvalidDataException();
+                        throw new InvalidDataException("Decoded literal-length that would exceed the source buffer size.");
 
                     Buffer.BlockCopy(input, inputOffset + sourceOffset, output, outputOffset, literalLength);
                     inputOffset = inputOffset + literalLength + sourceOffset;
