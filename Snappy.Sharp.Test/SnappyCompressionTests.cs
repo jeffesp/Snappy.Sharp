@@ -168,7 +168,7 @@ namespace Snappy.Sharp.Test
             return new object[] { outputPosition, result};
         }
 
-        private byte[] GetRandomData(int count = 100)
+        private static byte[] GetRandomData(int count = 100)
         {
             var r = new Random();
             var result = new byte[count];

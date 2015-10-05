@@ -44,7 +44,7 @@ namespace Snappy.Performance
 
             public override string ToString()
             {
-                return String.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}\t{5:F2}",
+                return string.Format("{0,-20}\t{1,10}\t{2}\t{3:F2}\t{4:P}\t{5:F2}",
                                      Path.GetFileName(FileName),
                                      ElapsedTime.Ticks * NanosecPerTick,
                                      Iterations,
@@ -53,7 +53,7 @@ namespace Snappy.Performance
                                      StandardDeviation);
             }
 
-            public static string HeaderString = String.Format("{0,-20}\t{1,10}\t{2}\t{3}\t{4}", "File", "Time (ns)", "Iter", "MB/s", "Compression");
+            public static string HeaderString = string.Format("{0,-20}\t{1,10}\t{2}\t{3}\t{4}", "File", "Time (ns)", "Iter", "MB/s", "Compression");
 
             public XElement ToXml()
             {
@@ -72,17 +72,17 @@ namespace Snappy.Performance
                 return new CompressionResult
                        {
                             FileName = xml.Element("FileName").Value,
-                            FileBytes = Int64.Parse(xml.Element("FileBytes").Value),
-                            CompressedSize= Int64.Parse(xml.Element("CompressedSize").Value),
-                            ElapsedTime = new TimeSpan(Int64.Parse(xml.Element("Ticks").Value)),
-                            Iterations = Int32.Parse(xml.Element("Iterations").Value),
+                            FileBytes = long.Parse(xml.Element("FileBytes").Value),
+                            CompressedSize= long.Parse(xml.Element("CompressedSize").Value),
+                            ElapsedTime = new TimeSpan(long.Parse(xml.Element("Ticks").Value)),
+                            Iterations = int.Parse(xml.Element("Iterations").Value),
                        };
             }
         }
         static double StdDev(IEnumerable<long> values)
         {
             double ret = 0;
-            if (values.Count() > 0)
+            if (values.Any())
             {
                 double avg = values.Average();
                 double sum = values.Sum(val => Math.Pow(val - avg, 2));
@@ -259,17 +259,17 @@ namespace Snappy.Performance
 
             byte[] source = File.ReadAllBytes(fileName);
             if (source.Length != decompressed.Length)
-                throw new Exception(String.Format("Decompressed length {0} does not match original {1}", decompressed.Length, source.Length));
+                throw new Exception(string.Format("Decompressed length {0} does not match original {1}", decompressed.Length, source.Length));
             for (int i = 0; i < uncompressed.Length; i++)
                 if (source[i] != decompressed[i])
-                    throw new Exception(String.Format("Decompressed data did not match original at index {0}", i));
+                    throw new Exception(string.Format("Decompressed data did not match original at index {0}", i));
         }
 
         private static void WriteResultsAsXml(IEnumerable<CompressionResult> results)
         {
             XDocument xd = new XDocument();
             xd.Add(new XElement("results", results.Select(r => r.ToXml())));
-            using (var file = new FileStream(Path.Combine(xmlPath, String.Format("{0:MMddyyy-hhmmss}.xml", DateTime.Now)), FileMode.CreateNew, FileAccess.Write))
+            using (var file = new FileStream(Path.Combine(xmlPath, string.Format("{0:MMddyyy-hhmmss}.xml", DateTime.Now)), FileMode.CreateNew, FileAccess.Write))
             using (var writer = XmlWriter.Create(file))
             {
                 xd.WriteTo(writer);
