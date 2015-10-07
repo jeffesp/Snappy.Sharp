@@ -38,7 +38,7 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void int_maxvalue_encoded()
         {
-            var data = WriteLengthData(Int32.MaxValue);
+            var data = WriteLengthData(int.MaxValue);
             Assert.Equal(0xFF, data[0]);
             Assert.Equal(0xFF, data[1]);
             Assert.Equal(0xFF, data[2]);

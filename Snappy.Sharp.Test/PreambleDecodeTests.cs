@@ -1,6 +1,4 @@
-﻿using System;
-
-using Xunit;
+﻿using Xunit;
 
 namespace Snappy.Sharp.Test
 {
@@ -39,7 +37,7 @@ namespace Snappy.Sharp.Test
             data[4] = 0x7; 
 
             var result = ReadLengthData(data);
-            Assert.Equal(Int32.MaxValue, result[0]);
+            Assert.Equal(int.MaxValue, result[0]);
         }
 
         private static int[] ReadLengthData(byte[] data)

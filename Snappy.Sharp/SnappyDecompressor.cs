@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
 
 namespace Snappy.Sharp
 {
@@ -133,7 +130,7 @@ namespace Snappy.Sharp
          * versions of hot-spot this code can be integrated into the main loop but for now
          * it is worth the extra maintenance pain to get the extra 10-20%.
          */
-        private int[] DecompressTagSlow(byte[] input, int ipIndex, byte[] output, int outputLimit, int outputOffset, int opIndex)
+        private static int[] DecompressTagSlow(byte[] input, int ipIndex, byte[] output, int outputLimit, int outputOffset, int opIndex)
         {
             // read the op code
             byte opCode = input[ipIndex++];
@@ -176,7 +173,7 @@ namespace Snappy.Sharp
             return new int[] {ipIndex, opIndex};
         }
 
-        private void CopyLiteral(byte[] input, int ipIndex, byte[] output, int opIndex, int length)
+        private static void CopyLiteral(byte[] input, int ipIndex, byte[] output, int opIndex, int length)
         {
             Debug.Assert(length > 0);
             Debug.Assert(ipIndex >= 0);
@@ -221,7 +218,7 @@ namespace Snappy.Sharp
             }
         }
 
-        private void CopyCopy(byte[] output, int length, int opIndex, int outputLimit, int copyOffset)
+        private static void CopyCopy(byte[] output, int length, int opIndex, int outputLimit, int copyOffset)
         {
             int spaceLeft = outputLimit - opIndex;
             int srcIndex = opIndex - copyOffset;
@@ -256,7 +253,7 @@ namespace Snappy.Sharp
          * Note that this does not match the semantics of either memcpy()
          * or memmove().
          */
-        private void IncrementalCopy(byte[] source, int srcIndex, byte[] output, int opIndex, int length)
+        private static void IncrementalCopy(byte[] source, int srcIndex, byte[] output, int opIndex, int length)
         {
             Debug.Assert(source != null);
             Debug.Assert(output != null);
@@ -270,7 +267,7 @@ namespace Snappy.Sharp
             } while (--length > 0);
         }
 
-        private void IncrementalCopyFastPath(byte[] output, int srcIndex, int opIndex, int length)
+        private static void IncrementalCopyFastPath(byte[] output, int srcIndex, int opIndex, int length)
         {
             int copiedLength = 0;
             while ((opIndex + copiedLength) - srcIndex < 8)
