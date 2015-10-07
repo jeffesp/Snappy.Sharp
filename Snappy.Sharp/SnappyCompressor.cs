@@ -423,7 +423,7 @@ namespace Snappy.Sharp
             // Varints consist of a series of bytes, where the lower 7 bits are data and the upper bit is set iff there are more bytes to read.
             // In other words, an uncompressed length of 64 would be stored as 0x40, and an uncompressed length of 2097150 (0x1FFFFE) would
             // be stored as 0xFE 0XFF 0X7F
-            while (uncompressedLength > bitMask) 
+            while (uncompressedLength >= bitMask) 
             {
                 compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
                 uncompressedLength = uncompressedLength >> 7;
