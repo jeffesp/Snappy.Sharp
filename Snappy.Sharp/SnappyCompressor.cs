@@ -207,7 +207,7 @@ namespace Snappy.Sharp
             return outputIndex;
         }
 
-        private int EmitCopyLessThan64(byte[] output, int outputIndex, int offset, int length)
+        private static int EmitCopyLessThan64(byte[] output, int outputIndex, int offset, int length)
         {
             Debug.Assert( offset >= 0);
             Debug.Assert( length <= 64);
@@ -228,7 +228,7 @@ namespace Snappy.Sharp
             return outputIndex;
         }
 
-        private int EmitCopy(byte[] compressed, int compressedIndex, int offset, int length)
+        private static int EmitCopy(byte[] compressed, int compressedIndex, int offset, int length)
         {
             // Emit 64 byte copies but make sure to keep at least four bytes reserved
             while (length >= 68)
@@ -257,7 +257,7 @@ namespace Snappy.Sharp
         // Does not read s2Limit or beyond.
         // Does not read *(s1 + (s2_limit - s2)) or beyond.
         // Requires that s2Limit >= s2.
-        private int FindMatchLengthBasic(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        private static int FindMatchLengthBasic(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
             int matched = 0;
@@ -268,7 +268,7 @@ namespace Snappy.Sharp
         }
 
         // 32-bit optimized version of above
-        private int FindMatchLength32(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        private static int FindMatchLength32(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
 
@@ -308,7 +308,7 @@ namespace Snappy.Sharp
 
 
         // 64-bit optimized version of above
-        private int FindMatchLength64(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        private static int FindMatchLength64(byte[] s1, int s1Index, int s2Index, int s2Limit)
         {
             Debug.Assert(s2Limit >= s2Index);
 
@@ -406,7 +406,7 @@ namespace Snappy.Sharp
             return hashTableSize;
         }
 
-        private uint Hash(uint bytes, int shift)
+        private static uint Hash(uint bytes, int shift)
         {
             const int kMul = 0x1e35a7bd;
             return (bytes * kMul) >> shift;
@@ -423,7 +423,7 @@ namespace Snappy.Sharp
             // Varints consist of a series of bytes, where the lower 7 bits are data and the upper bit is set iff there are more bytes to read.
             // In other words, an uncompressed length of 64 would be stored as 0x40, and an uncompressed length of 2097150 (0x1FFFFE) would
             // be stored as 0xFE 0XFF 0X7F
-            while (uncompressedLength > bitMask) 
+            while (uncompressedLength >= bitMask) 
             {
                 compressed[compressedOffset++] = (byte)(uncompressedLength | bitMask);
                 uncompressedLength = uncompressedLength >> 7;
