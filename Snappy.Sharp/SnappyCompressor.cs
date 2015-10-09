@@ -40,7 +40,6 @@ namespace Snappy.Sharp
 
         public int MaxCompressedLength(int sourceLength)
         {
-            // So says the code from Google.
             return 32 + sourceLength + sourceLength / 6;
         }
 
@@ -86,11 +85,8 @@ namespace Snappy.Sharp
             Debug.Assert(inputSize <= BLOCK_SIZE);
             Debug.Assert((hashTable.Length & (hashTable.Length - 1)) == 0, "hashTable size must be a power of 2");
             int shift = (int) (32 - Utilities.Log2Floor((uint)hashTable.Length));
-            //DCHECK_EQ(static_cast<int>(kuint32max >> shift), table_size - 1);
             int inputEnd = inputOffset + inputSize;
             int baseInputIndex = inputIndex;
-            // Bytes in [next_emit, ip) will be emitted as literal bytes.  Or
-            // [next_emit, ip_end) after the main loop.
             int nextEmitIndex = inputIndex;
 
             if (inputSize >= INPUT_MARGIN_BYTES)
@@ -351,7 +347,7 @@ namespace Snappy.Sharp
         internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length, bool allowFastPath)
         {
             int n = length - 1;
-            outputIndex = EmitLiteralTag(output, outputIndex, n);
+            outputIndex = EmitLiteralTagBytes(output, outputIndex, n);
             if (allowFastPath && length <= 16)
             {
                 Utilities.UnalignedCopy64(literal, literalIndex, output, outputIndex);
@@ -362,7 +358,7 @@ namespace Snappy.Sharp
             return outputIndex + length;
         }
 
-        internal int EmitLiteralTag(byte[] output, int outputIndex, int size)
+        internal int EmitLiteralTagBytes(byte[] output, int outputIndex, int size)
         {
             if (size < 60)
             {
@@ -372,7 +368,6 @@ namespace Snappy.Sharp
             {
                 int baseIndex = outputIndex;
                 outputIndex++;
-                // TODO: Java version is 'unrolled' here, C++ isn't. Should look into it?
                 int count = 0;
                 while (size > 0)
                 {
@@ -447,7 +442,6 @@ namespace Snappy.Sharp
             }
             Debug.Assert((tableSize & (tableSize - 1)) == 0, "Table size not power of 2.");
             Debug.Assert(tableSize <= MAX_HASH_TABLE_SIZE, "Table size too large.");
-            // TODO: C++/Java versions do this with a reusable buffer for efficiency. Probably also useful here. All that not allocating in a tight loop and all
             return new short[tableSize];
         }
     }

@@ -165,7 +165,7 @@ namespace Snappy.Sharp.Test
             var target = new SnappyCompressor();
             var result = new byte[1 + resultSizeExtenstion];
 
-            int outputPosition = target.EmitLiteralTag(result, 0, dataSize);
+            int outputPosition = target.EmitLiteralTagBytes(result, 0, dataSize);
             return new object[] { outputPosition, result};
         }
 
