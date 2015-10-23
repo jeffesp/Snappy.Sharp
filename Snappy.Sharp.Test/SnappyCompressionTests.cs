@@ -23,7 +23,7 @@ namespace Snappy.Sharp.Test
 
             int result = target.Compress(data, 0, data.Length, compressed);
 
-            Assert.Equal(52, result);
+            Assert.Equal(51, result);
 
             var decompressor = new SnappyDecompressor();
             var bytes = decompressor.Decompress(compressed, 0, result);
@@ -71,9 +71,7 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void compress_multiple_blocks()
         {
-            /*!
-             * this ends up being uncompressible because it is random.
-             */
+            // this ends up being uncompressible because it is random.
             var rand = new Random().Next(1 << 4, 1 << 10);
             var data = GetRandomData((1 << 20) + rand); // 1MB  + a bit random so there is an uneven block at end.
             var target = new SnappyCompressor();
@@ -105,7 +103,7 @@ namespace Snappy.Sharp.Test
 
             var decompressor = new SnappyDecompressor();
             int offset = 0;
-            int result = decompressor.ReadUncompressedLength(compressed, ref offset);
+            int result = compressed.FromVarInt(ref offset);
 
             Assert.Equal(dataSize, result);
             Assert.Equal(storageBytes, offset);
@@ -135,13 +133,11 @@ namespace Snappy.Sharp.Test
             var data = GetRandomData(dataSize);
             var result = new byte[target.MaxCompressedLength(dataSize)];
 
-            var size = target.EmitLiteral(result, 0, data, 0, dataSize, true);
+            var size = target.EmitLiteral(result, 0, data, 0, dataSize);
 
             Assert.Equal(data, result.Skip(size - dataSize).Take(dataSize));
         }
 
-        /*
-        HACK: this used to work, but doesn't now. as long as the round-trip stuff works will leave this out.
         [Theory]
         [PropertyData("DataFiles")]
         public void compression_same_as_cpp_output(string fileName)
@@ -158,7 +154,6 @@ namespace Snappy.Sharp.Test
             Assert.Equal(compressed.Length, size);
             Assert.Equal(compressed, result.Take(size).ToArray());
         }
-        */
 
         private static object[] EmitLiteralTag(int dataSize, int resultSizeExtenstion)
         {

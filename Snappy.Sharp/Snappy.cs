@@ -40,8 +40,7 @@ namespace Snappy.Sharp
 
         public static int GetUncompressedLength(byte[] compressed, int offset = 0)
         {
-            var decompressor = new SnappyDecompressor();
-            return decompressor.ReadUncompressedLength(compressed, ref offset);
+            return compressed.FromVarInt(ref offset);
         }
 
         public static byte[] Uncompress(byte[] compressed)

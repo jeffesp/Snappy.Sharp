@@ -21,10 +21,9 @@ namespace Snappy.Sharp.Test
             var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
             int size = target.Compress(uncompressed, 0, uncompressed.Length, result);
 
-
             var target2 = new SnappyDecompressor();
             int offset = 0;
-            int outsize = target2.ReadUncompressedLength(result, ref offset);
+            int outsize = result.FromVarInt(ref offset);
             var bytes = new byte[size];
             target2.Decompress(result, 0 + offset, size - offset, bytes, 0, outsize);
 

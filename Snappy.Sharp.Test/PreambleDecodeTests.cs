@@ -14,7 +14,7 @@ namespace Snappy.Sharp.Test
 
             int offset = 0;
             var target = new SnappyDecompressor();
-            int result = target.ReadUncompressedLength(data, ref offset);
+            int result = data.FromVarInt(ref offset);
             Assert.Equal(64, result);
             Assert.Equal(1, offset);
         }
@@ -29,7 +29,7 @@ namespace Snappy.Sharp.Test
 
             int offset = 0;
             var target = new SnappyDecompressor();
-            int result = target.ReadUncompressedLength(data, ref offset);
+            int result = data.FromVarInt(ref offset);
             Assert.Equal(2097150, result);
             Assert.Equal(3, offset);
         }
@@ -46,7 +46,7 @@ namespace Snappy.Sharp.Test
 
             int offset = 0;
             var target = new SnappyDecompressor();
-            int result = target.ReadUncompressedLength(data, ref offset);
+            int result = data.FromVarInt(ref offset);
             Assert.Equal(Int32.MaxValue, result);
             Assert.Equal(5, offset);
         }
@@ -54,19 +54,17 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void decompression_read_uncompressed_length_throws_when_no_data()
         {
-            SnappyDecompressor target = new SnappyDecompressor();
             byte[] input = new byte[0];
             int offset = 0;
-            Assert.Throws<ArgumentException>(() => target.ReadUncompressedLength(input, ref offset));
+            Assert.Throws<ArgumentOutOfRangeException>(() => input.FromVarInt(ref offset));
         }
 
         [Fact]
         public void decompression_read_uncompressed_length_throws_when_offset_exceeds_data()
         {
-            SnappyDecompressor target = new SnappyDecompressor();
             byte[] input = new byte[10];
             int offset = 10;
-            Assert.Throws<ArgumentException>(() => target.ReadUncompressedLength(input, ref offset));
+            Assert.Throws<ArgumentOutOfRangeException>(() => input.FromVarInt(ref offset));
         }
     }
 }

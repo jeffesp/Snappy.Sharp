@@ -23,7 +23,7 @@ namespace Snappy.Sharp.Test
         }
 
         [Fact]
-        public void will_read_multiple_copy_and_repeats_the_literal()
+        public void will_read_multiple_copies_and_repeat_the_literal()
         {
             //from the description:
             //

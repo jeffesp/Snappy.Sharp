@@ -5,15 +5,15 @@ namespace Snappy.Sharp
 {
     public class SnappyCompressor
     {
-        private const int BLOCK_LOG = 15;
-        private const int BLOCK_SIZE = 1 << BLOCK_LOG;
+        const int BLOCK_LOG = 15;
+        const int BLOCK_SIZE = 1 << BLOCK_LOG;
 
-        private const int INPUT_MARGIN_BYTES = 15;
+        const int INPUT_MARGIN_BYTES = 15;
 
-        private const int MAX_HASH_TABLE_BITS = 14;
-        private const int MAX_HASH_TABLE_SIZE = 1 << MAX_HASH_TABLE_BITS;
+        const int MAX_HASH_TABLE_BITS = 14;
+        const int MAX_HASH_TABLE_SIZE = 1 << MAX_HASH_TABLE_BITS;
 
-        private readonly Func<byte[], int, int, int, int> FindMatchLength;
+        readonly Func<byte[], int, int, int, int> FindMatchLength;
 
         public SnappyCompressor() : this(Utilities.NativeIntPtrSize())
         {
@@ -50,9 +50,11 @@ namespace Snappy.Sharp
 
         public int Compress(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
         {
-            int compressedIndex = WriteUncomressedLength(compressed, compressedOffset, uncompressedLength);
-            int headLength = compressedIndex - compressedOffset;
-            return headLength + CompressInternal(uncompressed, uncompressedOffset, uncompressedLength, compressed, compressedIndex);
+            byte[] uncompressedLengthBytes = uncompressedLength.ToVarInt();
+            Buffer.BlockCopy(uncompressedLengthBytes, 0, compressed, compressedOffset, uncompressedLengthBytes.Length);
+            
+            int headLength = uncompressedLengthBytes.Length - compressedOffset; // TODO: this seems really weird - could easily be negative
+            return headLength + CompressInternal(uncompressed, uncompressedOffset, uncompressedLength, compressed, compressedOffset + uncompressedLengthBytes.Length);
         }
 
         internal int CompressInternal(byte[] uncompressed, int uncompressedOffset, int uncompressedLength, byte[] compressed, int compressedOffset)
@@ -149,7 +151,7 @@ namespace Snappy.Sharp
                     // than 4 bytes match.  But, prior to the match, input
                     // bytes [next_emit, ip) are unmatched.  Emit them as "literal bytes."
                     Debug.Assert(nextEmitIndex + 16 < inputEnd);
-                    outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputIndex - nextEmitIndex, true);
+                    outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputIndex - nextEmitIndex);
 
                     // Step 3: Call EmitCopy, and then see if another EmitCopy could
                     // be our next move.  Repeat until we find no match for the
@@ -197,7 +199,7 @@ namespace Snappy.Sharp
             // Emit the remaining bytes as a literal
             if (nextEmitIndex < inputEnd)
             {
-                outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputEnd - nextEmitIndex, false);
+                outputIndex = EmitLiteral(output, outputIndex, input, nextEmitIndex, inputEnd - nextEmitIndex);
             }
 
             return outputIndex;
@@ -247,36 +249,36 @@ namespace Snappy.Sharp
 
         // Return the largest n such that
         //
-        //   s1[s1Index,n-1] == s1[s2Index,n-1]
-        //   and n <= (s2Limit - s2Index).
+        //   source[startIndex,n-1] == source[matchIndex,n-1]
+        //   and n <= (matchIndexLimit - matchIndex).
         //
-        // Does not read s2Limit or beyond.
-        // Does not read *(s1 + (s2_limit - s2)) or beyond.
-        // Requires that s2Limit >= s2.
-        private int FindMatchLengthBasic(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        // Does not read matchIndexLimit or beyond.
+        // Does not read *(source + (matchIndexLimit - matchIndex)) or beyond.
+        // Requires that matchIndexLimit >= matchIndex.
+        private int FindMatchLengthBasic(byte[] source, int startIndex, int matchIndex, int matchIndexLimit)
         {
-            Debug.Assert(s2Limit >= s2Index);
+            Debug.Assert(matchIndexLimit >= matchIndex);
             int matched = 0;
-            while (s2Index + matched < s2Limit && s1[s1Index + matched] == s1[s2Index + matched]) {
+            while (matchIndex + matched < matchIndexLimit && source[startIndex + matched] == source[matchIndex + matched]) {
                 ++matched;
             }
             return matched;
         }
 
         // 32-bit optimized version of above
-        private int FindMatchLength32(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        private int FindMatchLength32(byte[] source, int startIndex, int matchIndex, int matchIndexLimit)
         {
-            Debug.Assert(s2Limit >= s2Index);
+            Debug.Assert(matchIndexLimit >= matchIndex);
 
             int matched = 0;
-            while (s2Index <= s2Limit - 4)
+            while (matchIndex <= matchIndexLimit - 4)
             {
-                uint a = Utilities.GetFourBytes(s1, s2Index);
-                uint b = Utilities.GetFourBytes(s1, s1Index + matched);
+                uint a = Utilities.GetFourBytes(source, matchIndex);
+                uint b = Utilities.GetFourBytes(source, startIndex + matched);
 
                 if (a == b)
                 {
-                    s2Index += 4;
+                    matchIndex += 4;
                     matched += 4;
                 }
                 else
@@ -287,11 +289,11 @@ namespace Snappy.Sharp
                     return matched;
                 }
             }
-            while (s2Index < s2Limit)
+            while (matchIndex < matchIndexLimit)
             {
-                if (s1[s1Index] == s1[s2Index])
+                if (source[startIndex] == source[matchIndex])
                 {
-                    ++s2Index;
+                    ++matchIndex;
                     ++matched;
                 }
                 else
@@ -304,19 +306,19 @@ namespace Snappy.Sharp
 
 
         // 64-bit optimized version of above
-        private int FindMatchLength64(byte[] s1, int s1Index, int s2Index, int s2Limit)
+        int FindMatchLength64(byte[] source, int startIndex, int matchIndex, int matchIndexLimit)
         {
-            Debug.Assert(s2Limit >= s2Index);
+            Debug.Assert(matchIndexLimit >= matchIndex);
 
             int matched = 0;
-            while (s2Index <= s2Limit - 8)
+            while (matchIndex <= matchIndexLimit - 8)
             {
-                ulong a = Utilities.GetEightBytes(s1, s2Index);
-                ulong b = Utilities.GetEightBytes(s1, s1Index + matched);
+                ulong a = Utilities.GetEightBytes(source, matchIndex);
+                ulong b = Utilities.GetEightBytes(source, startIndex + matched);
 
                 if (a == b)
                 {
-                    s2Index += 8;
+                    matchIndex += 8;
                     matched += 8;
                 }
                 else
@@ -328,11 +330,11 @@ namespace Snappy.Sharp
                     return matched;
                 }
             }
-            while (s2Index < s2Limit)
+            while (matchIndex < matchIndexLimit)
             {
-                if (s1[s1Index] == s1[s2Index])
+                if (source[startIndex] == source[matchIndex])
                 {
-                    ++s2Index;
+                    ++matchIndex;
                     ++matched;
                 }
                 else
@@ -344,42 +346,57 @@ namespace Snappy.Sharp
         }
 
 
-        internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length, bool allowFastPath)
+        internal int EmitLiteral(byte[] output, int outputIndex, byte[] literal, int literalIndex, int length)
         {
             int n = length - 1;
             outputIndex = EmitLiteralTagBytes(output, outputIndex, n);
-            if (allowFastPath && length <= 16)
-            {
-                Utilities.UnalignedCopy64(literal, literalIndex, output, outputIndex);
-                Utilities.UnalignedCopy64(literal, literalIndex + 8, output, outputIndex + 8);
-                return outputIndex + length;
-            }
             Buffer.BlockCopy(literal, literalIndex, output, outputIndex, length);
             return outputIndex + length;
         }
 
         internal int EmitLiteralTagBytes(byte[] output, int outputIndex, int size)
         {
+            int bytesUsed = 0;
             if (size < 60)
             {
-                output[outputIndex++] = (byte)(Snappy.LITERAL | (size << 2));
+                output[outputIndex] = (byte)(Snappy.LITERAL | (size << 2));
+                bytesUsed = 1;
+            }
+            else if (size < 1<<8)
+            {
+                output[outputIndex] = (Snappy.LITERAL | (60 << 2));
+                output[outputIndex + 1] = (byte)size;
+                bytesUsed = 2;
+            }
+            else if (size  < 1<<16)
+            {
+                output[outputIndex] = (Snappy.LITERAL | (61 << 2));
+                output[outputIndex + 1] = (byte)size;
+                output[outputIndex + 2] = (byte)(size >> 8);
+                bytesUsed = 3;
+            }
+            else if (size  < 1<<24)
+            {
+                output[outputIndex] = (Snappy.LITERAL | (62 << 2));
+                output[outputIndex + 1] = (byte)size;
+                output[outputIndex + 2] = (byte)(size >> 8);
+                output[outputIndex + 3] = (byte)(size >> 16);
+                bytesUsed = 4;
+            }
+            else if (size  <= int.MaxValue) 
+            {
+                output[outputIndex] = (Snappy.LITERAL | (63 << 2));
+                output[outputIndex + 1] = (byte)size;
+                output[outputIndex + 2] = (byte)(size >> 8);
+                output[outputIndex + 3] = (byte)(size >> 16);
+                output[outputIndex + 4] = (byte)(size >> 24);
+                bytesUsed = 5;
             }
             else
             {
-                int baseIndex = outputIndex;
-                outputIndex++;
-                int count = 0;
-                while (size > 0)
-                {
-                    output[outputIndex++] = (byte)(size & 0xff);
-                    size >>= 8;
-                    count++;
-                }
-                Debug.Assert(count >= 1);
-                Debug.Assert(count <= 4);
-                output[baseIndex] = (byte)(Snappy.LITERAL | ((59 + count) << 2));
+                throw new ArgumentOutOfRangeException(nameof(size), "Source size is too long.");
             }
-            return outputIndex;
+            return outputIndex + bytesUsed;
         }
 
         internal int GetHashTableSize(int inputSize)
@@ -401,7 +418,7 @@ namespace Snappy.Sharp
             return hashTableSize;
         }
 
-        private uint Hash(uint bytes, int shift)
+        uint Hash(uint bytes, int shift)
         {
             const int kMul = 0x1e35a7bd;
             return (bytes * kMul) >> shift;

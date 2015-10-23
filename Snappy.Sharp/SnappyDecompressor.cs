@@ -5,36 +5,11 @@ namespace Snappy.Sharp
 {
     public class SnappyDecompressor
     {
-        private const int bitMask = 0x80;
-
-        public int ReadUncompressedLength(byte[] data, ref int offset)
-        {
-            if (data.Length == 0 || offset >= data.Length)
-                throw new ArgumentException("Not enough data to read length.", "data");
-
-            int sum = 0, currentShift = 0;
-            while ((data[offset] & bitMask) != 0)
-            {
-                sum = UpdateSum(data, offset, currentShift, sum);
-                offset++;
-                currentShift += 7;
-            }
-            sum = UpdateSum(data, offset, currentShift, sum);
-            offset++;
-            return sum;
-        }
-
-        private int UpdateSum(byte[] data, int offset, int currentShift, int sum)
-        {
-            int nextValue = data[offset] & (bitMask - 1);
-            nextValue <<= currentShift;
-            sum += nextValue;
-            return sum;
-        }
+        const int bitMask = 0x80;
 
         public byte[] Decompress(byte[] compressed, int compressedOffset, int compressedSize)
         {
-            int sizeHeader = ReadUncompressedLength(compressed, ref compressedOffset);
+            int sizeHeader = compressed.FromVarInt(ref compressedOffset);
             var data = new byte[sizeHeader];
 
             Decompress(compressed, compressedOffset, compressedSize + compressedOffset, data, 0, data.Length);
@@ -116,7 +91,7 @@ namespace Snappy.Sharp
             return outputOffset;
         }
 
-        private static int CopyCopy(byte[] output, int outputOffset, int length, int offset)
+        static int CopyCopy(byte[] output, int outputOffset, int length, int offset)
         {
             int count = outputOffset + length;
             while (outputOffset < count)
@@ -127,9 +102,9 @@ namespace Snappy.Sharp
             return count;
         }
 
-        private Snappy.TagType ClassifyTag(byte input)
+        Snappy.TagType ClassifyTag(byte input)
         {
-            return (Snappy.TagType) (input & 0x03);
+            return (Snappy.TagType)(input & 0x03);
         }
 
     }
