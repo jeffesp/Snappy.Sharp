@@ -64,6 +64,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FindMatch_Issue14.cs" />
     <Compile Include="PerformanceTests.cs" />
     <Compile Include="PreambleDecodeTests.cs" />
     <Compile Include="PreambleEncodeTests.cs" />

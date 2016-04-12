@@ -138,27 +138,6 @@ namespace Snappy.Sharp.Test
             Assert.Equal(data, result.Skip(size - dataSize).Take(dataSize));
         }
 
-
-        /*
-        HACK: this used to work, but doesn't now. as long as the round-trip stuff works will leave this out.
-        [Theory]
-        [MemberData("DataFiles")]
-        public void compression_same_as_cpp_output(string fileName)
-        {
-            string compressedFileName = Path.Combine(@"..\..\..\testdata_compressed", Path.GetFileName(fileName+ ".comp") );
-            byte[] uncompressed = File.ReadAllBytes(fileName);
-            var target = new SnappyCompressor();
-            var result = new byte[target.MaxCompressedLength(uncompressed.Length)];
-            int size = target.Compress(uncompressed, 0, uncompressed.Length, result);
-
-            byte[] compressed = File.ReadAllBytes(compressedFileName);
-
-            Assert.Equal(Path.GetFileName(fileName + ".comp"), Path.GetFileName(compressedFileName));
-            Assert.Equal(compressed.Length, size);
-            Assert.Equal(compressed, result.Take(size).ToArray());
-        }
-        */
-
         private static object[] EmitLiteralTag(int dataSize, int resultSizeExtenstion)
         {
             var target = new SnappyCompressor();

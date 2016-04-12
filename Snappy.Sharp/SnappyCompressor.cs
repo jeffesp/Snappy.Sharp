@@ -293,7 +293,7 @@ namespace Snappy.Sharp
             }
             while (s2Index < s2Limit)
             {
-                if (s1[s1Index] == s1[s2Index])
+                if (s1[s1Index+matched] == s1[s2Index])
                 {
                     ++s2Index;
                     ++matched;
@@ -334,7 +334,7 @@ namespace Snappy.Sharp
             }
             while (s2Index < s2Limit)
             {
-                if (s1[s1Index] == s1[s2Index])
+                if (s1[s1Index+matched] == s1[s2Index])
                 {
                     ++s2Index;
                     ++matched;

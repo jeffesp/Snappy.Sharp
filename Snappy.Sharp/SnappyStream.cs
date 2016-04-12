@@ -197,7 +197,11 @@ namespace Snappy.Sharp
         public override void Write(byte[] buffer, int offset, int count)
         {
             if (compressionMode != CompressionMode.Compress || compressor == null)
-                throw new InvalidOperationException("Cannot write when set to compression mode.");
+                throw new InvalidOperationException("Cannot write if not set to compression mode.");
+
+            if (buffer.Length < count)
+                throw new InvalidOperationException();
+
             for (int i = 0; i < count; i += BLOCK_SIZE)
             {
                 stream.WriteByte(CompressedType);
