@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 
 using Xunit;
-using Xunit.Extensions;
 
 namespace Snappy.Sharp.Test
 {
@@ -23,7 +22,7 @@ namespace Snappy.Sharp.Test
 
             int result = target.Compress(data, 0, data.Length, compressed);
 
-            Assert.Equal(50, result);
+            Assert.Equal(52, result);
 
             var decompressor = new SnappyDecompressor();
             var bytes = decompressor.Decompress(compressed, 0, result);
@@ -42,7 +41,7 @@ namespace Snappy.Sharp.Test
             int result = target.Compress(data, 0, data.Length, compressed);
 
             Assert.True(result < compressedSize);
-            Assert.Equal(15, result);
+            Assert.Equal(12, result);
 
             // TODO: instead of decompressing, we should traverse the buffer looking for tag bytes and interpreting them.
             var decompressor = new SnappyDecompressor();
@@ -92,7 +91,7 @@ namespace Snappy.Sharp.Test
 
 
         [Theory]
-        [PropertyData("CompressedDataSizes")]
+        [MemberData("CompressedDataSizes")]
         public void compress_writes_uncompressed_length_first(int dataSize, int storageBytes)
         {
             var data = GetRandomData(dataSize);
@@ -111,7 +110,7 @@ namespace Snappy.Sharp.Test
         }
 
         [Theory]
-        [PropertyData("TagValues")]
+        [MemberData("TagValues")]
         public void emit_literal_tag_byte_counts(int dataSize, byte tagByteValue, int resultSizeExtenstion)
         {
             int outputPosition = (int)EmitLiteralTag(dataSize, resultSizeExtenstion)[0];
@@ -119,7 +118,7 @@ namespace Snappy.Sharp.Test
         }
 
         [Theory]
-        [PropertyData("TagValues")]
+        [MemberData("TagValues")]
         public void emit_literal_tag_byte_values(int dataSize, byte tagByteValue, int resultSizeExtenstion)
         {
             byte[] result = (byte[])EmitLiteralTag(dataSize, resultSizeExtenstion)[1];
@@ -127,7 +126,7 @@ namespace Snappy.Sharp.Test
         }
 
         [Theory]
-        [PropertyData("DataValues")]
+        [MemberData("DataValues")]
         public void emit_literal_copies_bytes_to_destination(int dataSize, byte tagByteValue, int resultSizeExtension)
         {
             var target = new SnappyCompressor();
@@ -139,10 +138,11 @@ namespace Snappy.Sharp.Test
             Assert.Equal(data, result.Skip(size - dataSize).Take(dataSize));
         }
 
+
         /*
         HACK: this used to work, but doesn't now. as long as the round-trip stuff works will leave this out.
         [Theory]
-        [PropertyData("DataFiles")]
+        [MemberData("DataFiles")]
         public void compression_same_as_cpp_output(string fileName)
         {
             string compressedFileName = Path.Combine(@"..\..\..\testdata_compressed", Path.GetFileName(fileName+ ".comp") );

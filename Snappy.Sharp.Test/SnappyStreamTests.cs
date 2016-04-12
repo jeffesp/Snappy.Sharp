@@ -156,12 +156,11 @@ namespace Snappy.Sharp.Test
         [Fact]
         public void stream_write_throws_exception_on_chunk_length_too_long()
         {
-            
             var ms = new MemoryStream();
             using (var target = new SnappyStream(ms, CompressionMode.Compress, true, false))
             {
                 byte[] buffer = new byte[1 << 20];
-                Assert.Throws<InvalidOperationException>(() => target.Write(buffer, 0, 1 << 20)); 
+                Assert.Throws<InvalidOperationException>(() => target.Write(buffer, 0, 1 << 20 + 1)); 
             }
         }
 

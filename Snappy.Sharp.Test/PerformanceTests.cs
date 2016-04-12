@@ -3,14 +3,13 @@ using System.IO;
 using System.Linq;
 
 using Xunit;
-using Xunit.Extensions;
 
 namespace Snappy.Sharp.Test
 {
     public class RoundtripTests
     {
         [Theory]
-        [PropertyData("DataSources")]
+        [MemberData("DataSources")]
         public void round_trip_returns_original_data(string fileName)
         {
             byte[] uncompressed = File.ReadAllBytes(fileName);
